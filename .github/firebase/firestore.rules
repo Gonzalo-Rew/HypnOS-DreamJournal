@@ -1,0 +1,177 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+    
+    // Verifica que el uid del documento coincida con el usuario autenticado
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    // Verifica que el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Valida que los campos requeridos están presentes
+    function hasRequiredUserFields() {
+      let req = request.resource.data;
+      return req.keys().hasAll(['displayName', 'email', 'createdAt', 'aiEnabled', 'timezone']);
+    }
+    
+    function hasRequiredDreamFields() {
+      let req = request.resource.data;
+      return req.keys().hasAll(['title', 'text', 'dreamDate', 'createdAt', 'updatedAt', 'moodScore', 'tags', 'hasAudio', 'audioPath', 'transcription', 'aiSummary']);
+    }
+    
+    function hasRequiredInsightFields() {
+      let req = request.resource.data;
+      return req.keys().hasAll(['periodStart', 'periodEnd', 'dominantEmotions', 'recurringTags', 'generatedAt']);
+    }
+    
+    // Valida tipos de datos básicos
+    function isValidUserData() {
+      let data = request.resource.data;
+      return (
+        data.displayName is string &&
+        data.email is string &&
+        data.createdAt is timestamp &&
+        data.aiEnabled is bool &&
+        data.timezone is string &&
+        data.displayName.size() <= 100 &&
+        data.email.size() <= 255 &&
+        data.timezone.size() <= 50
+      );
+    }
+    
+    function isValidDreamData() {
+      let data = request.resource.data;
+      return (
+        data.title is string &&
+        data.text is string &&
+        data.dreamDate is timestamp &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (data.moodScore == null || data.moodScore is number) &&
+        data.tags is list &&
+        data.hasAudio is bool &&
+        (data.audioPath == null || data.audioPath is string) &&
+        (data.transcription == null || data.transcription is string) &&
+        (data.aiSummary == null || data.aiSummary is string) &&
+        data.title.size() <= 500 &&
+        data.text.size() <= 50000 &&
+        (data.moodScore == null || (data.moodScore >= 0 && data.moodScore <= 10))
+      );
+    }
+    
+    function isValidInsightData() {
+      let data = request.resource.data;
+      return (
+        data.periodStart is timestamp &&
+        data.periodEnd is timestamp &&
+        data.dominantEmotions is list &&
+        data.recurringTags is list &&
+        data.generatedAt is timestamp &&
+        data.periodStart < data.periodEnd
+      );
+    }
+    
+    // ============================================================
+    // COLLECTION: /users/{uid}
+    // ============================================================
+    
+    match /users/{uid} {
+      
+      // READ: Solo el propietario puede leer su perfil
+      allow read: if isAuthenticated() && isOwner(uid);
+      
+      // CREATE: Solo usuarios autenticados pueden crear su propio perfil
+      // Validación: la solicitud debe tener los campos requeridos con tipos correctos
+      allow create: if isAuthenticated() && 
+                       isOwner(uid) && 
+                       hasRequiredUserFields() && 
+                       isValidUserData();
+      
+      // UPDATE: Solo el propietario puede actualizar su perfil
+      // Validación: mantiene integridad del email y createdAt
+      allow update: if isAuthenticated() && 
+                       isOwner(uid) && 
+                       hasRequiredUserFields() && 
+                       isValidUserData() &&
+                       request.resource.data.email == resource.data.email &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      
+      // DELETE: Solo el propietario puede eliminar su perfil
+      // Nota: En producción, considerar soft-delete (campo inactive: true)
+      allow delete: if isAuthenticated() && isOwner(uid);
+      
+      // ========================================================
+      // SUBCOLLECTION: /users/{uid}/dreams/{dreamId}
+      // ========================================================
+      
+      match /dreams/{dreamId} {
+        
+        // READ: Solo el propietario puede leer sus sueños
+        allow read: if isAuthenticated() && isOwner(uid);
+        
+        // CREATE: Solo el propietario puede crear sueños
+        // Validación: campos requeridos y tipos correctos
+        allow create: if isAuthenticated() && 
+                         isOwner(uid) && 
+                         hasRequiredDreamFields() && 
+                         isValidDreamData();
+        
+        // UPDATE: Solo el propietario puede actualizar
+        // Validación: no modifica createdAt, actualiza updatedAt
+        allow update: if isAuthenticated() && 
+                         isOwner(uid) && 
+                         hasRequiredDreamFields() && 
+                         isValidDreamData() &&
+                         request.resource.data.createdAt == resource.data.createdAt &&
+                         request.resource.data.updatedAt > resource.data.updatedAt;
+        
+        // DELETE: Solo el propietario puede eliminar
+        allow delete: if isAuthenticated() && isOwner(uid);
+      }
+      
+      // ========================================================
+      // SUBCOLLECTION: /users/{uid}/insights/{insightId}
+      // ========================================================
+      
+      match /insights/{insightId} {
+        
+        // READ: Solo el propietario puede leer insights
+        allow read: if isAuthenticated() && isOwner(uid);
+        
+        // CREATE: Generalmente creado por Cloud Functions o backend
+        // Permitir al propietario crear solo para desarrollo temprano
+        allow create: if isAuthenticated() && 
+                         isOwner(uid) && 
+                         hasRequiredInsightFields() && 
+                         isValidInsightData();
+        
+        // UPDATE: Típicamente no se actualiza después de generación
+        // Permitir solo si el propietario es quien lo genera
+        allow update: if isAuthenticated() && 
+                         isOwner(uid) && 
+                         hasRequiredInsightFields() && 
+                         isValidInsightData();
+        
+        // DELETE: Solo el propietario
+        allow delete: if isAuthenticated() && isOwner(uid);
+      }
+    }
+    
+    // ============================================================
+    // DENY ALL OTHER PATHS
+    // ============================================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

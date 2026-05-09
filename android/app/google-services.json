@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1021662923284",
+    "project_id": "hypnos-dream-journal",
+    "storage_bucket": "hypnos-dream-journal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021662923284:android:2de9ec1bbf6b22cb007501",
+        "android_client_info": {
+          "package_name": "com.example.hypnos_dream_journal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYS3rrrT2AnWx8hKzUYVnBCzvEXgPJ8Ok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021662923284:android:339712d76670fc2a007501",
+        "android_client_info": {
+          "package_name": "com.example.hypnos_dreamjournal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYS3rrrT2AnWx8hKzUYVnBCzvEXgPJ8Ok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
