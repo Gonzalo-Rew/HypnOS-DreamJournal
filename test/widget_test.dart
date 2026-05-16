@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
+// This is a basic Flutter widget test for Hypnos Dream Journal.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// TODO: Replace with actual app integration tests after UI screens are implemented.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hypnos_dreamjournal/app/bootstrap.dart';
 import 'package:hypnos_dreamjournal/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('App initializes and shows home page', (
+    WidgetTester tester,
+  ) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      const HypnosApp(
+        bootstrapState: AppBootstrapState(firebaseEnabled: false),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the app shows the Hypnos Dream Journal title
+    expect(find.text('Hypnos Dream Journal'), findsWidgets);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify that fallback warning is shown in limited mode
+    expect(
+      find.text('Firebase configuration is not available for this platform.'),
+      findsOneWidget,
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the warning icon is displayed in limited mode
+    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
   });
 }

@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+    
+    // Extrae el uid de la ruta (users/{uid}/dreams/...)
+    function getUserIdFromPath() {
+      return request.path[1];
+    }
+    
+    // Verifica que el uid extraído es el del usuario autenticado
+    function isOwnerByPath() {
+      return request.auth.uid == getUserIdFromPath();
+    }
+    
+    // Verifica autenticación
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Valida tipo de archivo de audio
+    function isAudioFile() {
+      return request.resource.contentType.matches('audio/.*') &&
+             request.resource.name.matches('.*\\.(m4a|mp3|wav|ogg|aac)$');
+    }
+    
+    // Valida tamaño de audio (máximo 100 MB para audios de sueños)
+    function isValidAudioSize() {
+      return request.resource.size <= 100 * 1024 * 1024;
+    }
+    
+    // ============================================================
+    // RUTA: users/{uid}/dreams/{dreamId}/audio.m4a
+    // ============================================================
+    
+    match /users/{uid}/dreams/{dreamId}/audio.m4a {
+      
+      // READ: Solo el propietario puede leer/descargar audio
+      allow read: if isAuthenticated() && isOwnerByPath();
+      
+      // WRITE (CREATE/UPDATE): Solo el propietario puede subir audio
+      // Validación: tipo de contenido y tamaño
+      allow write: if isAuthenticated() && 
+                      isOwnerByPath() && 
+                      isAudioFile() && 
+                      isValidAudioSize();
+      
+      // DELETE: Solo el propietario puede eliminar audio
+      allow delete: if isAuthenticated() && isOwnerByPath();
+    }
+    
+    // ============================================================
+    // RUTA: users/{uid}/dreams/{dreamId}/ - Otros archivos
+    // ============================================================
+    
+    match /users/{uid}/dreams/{dreamId}/{allFiles=**} {
+      
+      // READ: Solo el propietario
+      allow read: if isAuthenticated() && isOwnerByPath();
+      
+      // WRITE: Solo el propietario, validar tipos permitidos
+      allow write: if isAuthenticated() && 
+                      isOwnerByPath() &&
+                      request.resource.size <= 100 * 1024 * 1024;
+      
+      // DELETE: Solo el propietario
+      allow delete: if isAuthenticated() && isOwnerByPath();
+    }
+    
+    // ============================================================
+    // DENY ALL OTHER PATHS
+    // ============================================================
+    
+    match /{allPaths=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}

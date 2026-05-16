@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "240708967656",
+    "project_id": "hypnos-dreamjournal",
+    "storage_bucket": "hypnos-dreamjournal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:240708967656:android:43fad8b9e5346437ad7d5d",
+        "android_client_info": {
+          "package_name": "com.example.hypnos_dreamjournal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6Fl_zmy6vU0yyA_MqJJXlVSc5E18MW38"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
