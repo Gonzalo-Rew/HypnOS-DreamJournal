@@ -57,9 +57,7 @@ class AudioService {
       if (e is PermissionException) {
         return Failure(e);
       }
-      return Failure(
-        AppException(message: 'Failed to start recording: $e'),
-      );
+      return Failure(AppException(message: 'Failed to start recording: $e'));
     }
   }
 
@@ -94,6 +92,20 @@ class AudioService {
     } catch (_) {
       _isRecording = false;
     }
+  }
+
+  /// Pause the active recording.
+  Future<void> pauseRecording() async {
+    try {
+      if (_isRecording) await _recorder.pause();
+    } catch (_) {}
+  }
+
+  /// Resume a paused recording.
+  Future<void> resumeRecording() async {
+    try {
+      if (_isRecording) await _recorder.resume();
+    } catch (_) {}
   }
 
   /// Upload a local audio file to Firebase Storage.
@@ -142,14 +154,10 @@ class AudioService {
       return Success(downloadUrl);
     } on FirebaseException catch (e) {
       return Failure(
-        AppException(
-          message: 'Firebase Storage error: ${e.message ?? e.code}',
-        ),
+        AppException(message: 'Firebase Storage error: ${e.message ?? e.code}'),
       );
     } catch (e) {
-      return Failure(
-        AppException(message: 'Failed to upload audio: $e'),
-      );
+      return Failure(AppException(message: 'Failed to upload audio: $e'));
     }
   }
 

@@ -53,11 +53,13 @@ El objetivo es facilitar la redaccion futura del documento TFG con trazabilidad 
 - Impacto: Guia de implementacion front mas concreta y consistente con objetivo de captura < 60s y accesibilidad en uso nocturno.
 - Evidencia: .github/agents/contexts/specialized/flutter-ux-style-context.md
 
-- Fecha: 2026-04-29
-- Categoria: Agentes
-- Cambio: Creacion de un agente intermediario para coordinacion de desarrollo de software y toma de decisiones entre usuario y agentes especialistas.
-- Impacto: Mejora la priorizacion tecnica, reduce ambiguedades de handoff y estandariza decisiones multi-dominio.
-- Evidencia: .github/agents/software-decision-orchestrator.agent.md, .github/agents/contexts/shared/shared-agent-coordination.md, .github/agents/contexts/shared/shared-app-context.md
+- Fecha: 2026-05-12
+- Categoria: Arquitectura | UX
+- Cambio: Rediseno visual completo de la app segun mockups de referencia. Implementado MainShell con BottomNavigationBar glassmorphism (4 tabs: Inicio, Diario, Analisis, Perfil). Creado widget GlassCard reutilizable. Redesenadas HomeScreen (hero orb + cards contextuales), DreamsListScreen (glass cards con emotion pills), DashboardScreen (panel Morfeo IA prominente + chart + chips recurrentes + correlacion), ProfileScreen (avatar + secciones de privacidad/preferencias). AuthGate redirige a MainShell.
+- Impacto: Coherencia visual completa entre pantallas, Morfeo presente en analisis, navegacion por pestanas en lugar de hub de botones.
+- Evidencia: lib/app/main_shell.dart, lib/shared/widgets/glass_card.dart, lib/features/home/presentation/home_screen.dart, lib/features/dreams/presentation/dreams_list_screen.dart, lib/features/dashboard/presentation/dashboard_screen.dart, lib/features/profile/presentation/profile_screen.dart
+
+
 
 - Fecha: 2026-04-29
 - Categoria: Arquitectura

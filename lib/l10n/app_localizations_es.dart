@@ -94,6 +94,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'El nombre no puede superar los 50 caracteres';
 
   @override
+  String get validationDisplayNameTaken =>
+      'Este nombre ya está en uso, elige otro';
+
+  @override
   String validationFieldRequired(String fieldName) {
     return '$fieldName es obligatorio';
   }
@@ -418,4 +422,120 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get dashboardNoDreamsThisMonth => 'Ninguno este mes';
+
+  @override
+  String get welcomeMorpheusTitle => 'Morpheus';
+
+  @override
+  String get welcomeMorpheusSubtitle => 'Tu diario de sueños personal';
+
+  @override
+  String get welcomeBeginJourney => 'Comienza tu viaje';
+
+  @override
+  String get welcomeAlreadyHaveAccount => '¿Ya tienes una cuenta?';
+
+  @override
+  String get welcomeLogIn => 'Iniciar sesión';
+
+  @override
+  String get welcomeTagline => 'Explora las profundidades de tus sueños';
+
+  @override
+  String get loginPortalTitle => 'Entra al Portal Onírico';
+
+  @override
+  String get loginPortalSubtitle =>
+      'Inicia sesión para acceder a tu diario de sueños';
+
+  @override
+  String get loginForgotPassword => '¿Olvidaste tu contraseña?';
+
+  @override
+  String get loginSignIn => 'Iniciar sesión';
+
+  @override
+  String get loginNoAccount => '¿No tienes cuenta?';
+
+  @override
+  String get registerPortalTitle => 'Crea tu Portal Onírico';
+
+  @override
+  String get registerPortalSubtitle => 'Comienza tu viaje a tu subconsciente';
+
+  @override
+  String get registerDreamerNameHint => 'Tu nombre de soñador';
+
+  @override
+  String get registerEmailHint => 'Tu dirección de correo';
+
+  @override
+  String get registerCreateAccount => 'Crear cuenta';
+
+  @override
+  String get registerOrSecureAccess => 'O continúa con';
+
+  @override
+  String get registerContinueApple => 'Continuar con Apple';
+
+  @override
+  String get registerContinueGoogle => 'Continuar con Google';
+
+  @override
+  String get registerTermsPrefix => 'Al registrarte aceptas nuestros';
+
+  @override
+  String get registerTermsLink => 'Términos y Condiciones';
+
+  @override
+  String get registerTermsSuffix => '.';
+
+  @override
+  String get authErrorEmailInUse => 'Este correo ya está registrado';
+
+  @override
+  String get authErrorInvalidEmail => 'El correo electrónico no es válido';
+
+  @override
+  String get authErrorWeakPassword => 'La contraseña es demasiado débil';
+
+  @override
+  String get authErrorWrongPassword => 'La contraseña no es correcta';
+
+  @override
+  String get authErrorUserNotFound => 'No existe ninguna cuenta con ese correo';
+
+  @override
+  String get authErrorUserDisabled => 'Esta cuenta ha sido desactivada';
+
+  @override
+  String get authErrorTooManyRequests =>
+      'Demasiados intentos fallidos. Inténtalo más tarde';
+
+  @override
+  String get authErrorNetworkFailed =>
+      'Error de red. Comprueba tu conexión a internet';
+
+  @override
+  String get authErrorOperationNotAllowed =>
+      'Este método de inicio de sesión no está disponible';
+
+  @override
+  String get authErrorGoogleFailed =>
+      'No se pudo iniciar sesión con Google. Inténtalo de nuevo';
+
+  @override
+  String get authErrorAppleFailed =>
+      'No se pudo iniciar sesión con Apple. Inténtalo de nuevo';
+
+  @override
+  String get authErrorAppleNotSupported =>
+      'Inicio de sesión con Apple no disponible en este dispositivo';
+
+  @override
+  String get authErrorAppleNotInteractive =>
+      'El inicio de sesión con Apple requiere interacción del usuario';
+
+  @override
+  String get authErrorGeneric => 'Ha ocurrido un error. Inténtalo de nuevo';
 }

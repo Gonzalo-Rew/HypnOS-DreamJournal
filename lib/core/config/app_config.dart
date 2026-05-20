@@ -11,11 +11,6 @@ class AppConfig {
     defaultValue: '',
   );
 
-  static const String geminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: '',
-  );
-
   /// Check if running in debug mode
   static bool get isDebug {
     return environment == 'development';

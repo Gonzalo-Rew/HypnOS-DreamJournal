@@ -6,6 +6,7 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/services/audio_service.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
 
 /// Callback signature when a recording is completed.
 typedef OnRecordingComplete = void Function(String filePath);
@@ -105,7 +106,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error inesperado: $e';
+        _errorMessage = AppError.handle(e, 'AudioRecorder.start');
       });
     }
   }
@@ -140,7 +141,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error al detener: $e';
+        _errorMessage = AppError.handle(e, 'AudioRecorder.stop');
       });
     }
   }
@@ -155,9 +156,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Text(
               _errorMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             ),
           ),
         if (_isRecording) _buildRecordingActive(),
@@ -182,7 +183,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
               icon: const Icon(Icons.mic_none),
               label: const Text('Iniciar grabación'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentPrimary.withValues(alpha: 0.15),
+                backgroundColor: AppColors.accentPrimary.withValues(
+                  alpha: 0.15,
+                ),
                 foregroundColor: AppColors.accentPrimary,
                 side: const BorderSide(color: AppColors.accentPrimary),
               ),
@@ -201,9 +204,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             Text(
               'Grabando · ${_formatDuration(_elapsed)}',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -245,7 +248,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
                       });
                       widget.onRecordingDeleted?.call();
                     },
-              style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+              ),
               child: const Text('Cancelar'),
             ),
           ],

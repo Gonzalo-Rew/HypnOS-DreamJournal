@@ -94,6 +94,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Display name must be less than 50 characters';
 
   @override
+  String get validationDisplayNameTaken =>
+      'This name is already taken, please choose another';
+
+  @override
   String validationFieldRequired(String fieldName) {
     return '$fieldName is required';
   }
@@ -412,4 +416,120 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardNoDreamsThisMonth => 'None this month';
+
+  @override
+  String get welcomeMorpheusTitle => 'Morpheus';
+
+  @override
+  String get welcomeMorpheusSubtitle => 'Your personal dream journal';
+
+  @override
+  String get welcomeBeginJourney => 'Begin your journey';
+
+  @override
+  String get welcomeAlreadyHaveAccount => 'Already have an account?';
+
+  @override
+  String get welcomeLogIn => 'Log in';
+
+  @override
+  String get welcomeTagline => 'Explore the depths of your dreams';
+
+  @override
+  String get loginPortalTitle => 'Enter the Dream Portal';
+
+  @override
+  String get loginPortalSubtitle => 'Sign in to access your dream journal';
+
+  @override
+  String get loginForgotPassword => 'Forgot password?';
+
+  @override
+  String get loginSignIn => 'Sign in';
+
+  @override
+  String get loginNoAccount => 'Don\'t have an account?';
+
+  @override
+  String get registerPortalTitle => 'Create your Dream Portal';
+
+  @override
+  String get registerPortalSubtitle =>
+      'Start your journey into your subconscious';
+
+  @override
+  String get registerDreamerNameHint => 'Your dreamer name';
+
+  @override
+  String get registerEmailHint => 'Your email address';
+
+  @override
+  String get registerCreateAccount => 'Create account';
+
+  @override
+  String get registerOrSecureAccess => 'Or continue with';
+
+  @override
+  String get registerContinueApple => 'Continue with Apple';
+
+  @override
+  String get registerContinueGoogle => 'Continue with Google';
+
+  @override
+  String get registerTermsPrefix => 'By registering you agree to our';
+
+  @override
+  String get registerTermsLink => 'Terms & Conditions';
+
+  @override
+  String get registerTermsSuffix => '.';
+
+  @override
+  String get authErrorEmailInUse => 'This email is already registered';
+
+  @override
+  String get authErrorInvalidEmail => 'The email address is not valid';
+
+  @override
+  String get authErrorWeakPassword => 'The password is too weak';
+
+  @override
+  String get authErrorWrongPassword => 'The password is incorrect';
+
+  @override
+  String get authErrorUserNotFound => 'No account found with that email';
+
+  @override
+  String get authErrorUserDisabled => 'This account has been disabled';
+
+  @override
+  String get authErrorTooManyRequests =>
+      'Too many failed attempts. Please try again later';
+
+  @override
+  String get authErrorNetworkFailed =>
+      'Network error. Please check your internet connection';
+
+  @override
+  String get authErrorOperationNotAllowed =>
+      'This sign-in method is not available';
+
+  @override
+  String get authErrorGoogleFailed =>
+      'Could not sign in with Google. Please try again';
+
+  @override
+  String get authErrorAppleFailed =>
+      'Could not sign in with Apple. Please try again';
+
+  @override
+  String get authErrorAppleNotSupported =>
+      'Apple sign in is not available on this device';
+
+  @override
+  String get authErrorAppleNotInteractive =>
+      'Apple sign in requires user interaction';
+
+  @override
+  String get authErrorGeneric => 'An error occurred. Please try again';
 }

@@ -254,6 +254,12 @@ abstract class AppLocalizations {
   /// **'Display name must be less than 50 characters'**
   String get validationDisplayNameTooLong;
 
+  /// No description provided for @validationDisplayNameTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'This name is already taken, please choose another'**
+  String get validationDisplayNameTaken;
+
   /// No description provided for @validationFieldRequired.
   ///
   /// In en, this message translates to:
@@ -853,6 +859,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'None this month'**
   String get dashboardNoDreamsThisMonth;
+
+  /// No description provided for @welcomeMorpheusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus'**
+  String get welcomeMorpheusTitle;
+
+  /// No description provided for @welcomeMorpheusSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your personal dream journal'**
+  String get welcomeMorpheusSubtitle;
+
+  /// No description provided for @welcomeBeginJourney.
+  ///
+  /// In en, this message translates to:
+  /// **'Begin your journey'**
+  String get welcomeBeginJourney;
+
+  /// No description provided for @welcomeAlreadyHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account?'**
+  String get welcomeAlreadyHaveAccount;
+
+  /// No description provided for @welcomeLogIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get welcomeLogIn;
+
+  /// No description provided for @welcomeTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore the depths of your dreams'**
+  String get welcomeTagline;
+
+  /// No description provided for @loginPortalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the Dream Portal'**
+  String get loginPortalTitle;
+
+  /// No description provided for @loginPortalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to access your dream journal'**
+  String get loginPortalSubtitle;
+
+  /// No description provided for @loginForgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get loginForgotPassword;
+
+  /// No description provided for @loginSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get loginSignIn;
+
+  /// No description provided for @loginNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account?'**
+  String get loginNoAccount;
+
+  /// No description provided for @registerPortalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your Dream Portal'**
+  String get registerPortalTitle;
+
+  /// No description provided for @registerPortalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start your journey into your subconscious'**
+  String get registerPortalSubtitle;
+
+  /// No description provided for @registerDreamerNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dreamer name'**
+  String get registerDreamerNameHint;
+
+  /// No description provided for @registerEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your email address'**
+  String get registerEmailHint;
+
+  /// No description provided for @registerCreateAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get registerCreateAccount;
+
+  /// No description provided for @registerOrSecureAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Or continue with'**
+  String get registerOrSecureAccess;
+
+  /// No description provided for @registerContinueApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get registerContinueApple;
+
+  /// No description provided for @registerContinueGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get registerContinueGoogle;
+
+  /// No description provided for @registerTermsPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'By registering you agree to our'**
+  String get registerTermsPrefix;
+
+  /// No description provided for @registerTermsLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & Conditions'**
+  String get registerTermsLink;
+
+  /// No description provided for @registerTermsSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'.'**
+  String get registerTermsSuffix;
+
+  /// No description provided for @authErrorEmailInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already registered'**
+  String get authErrorEmailInUse;
+
+  /// No description provided for @authErrorInvalidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'The email address is not valid'**
+  String get authErrorInvalidEmail;
+
+  /// No description provided for @authErrorWeakPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'The password is too weak'**
+  String get authErrorWeakPassword;
+
+  /// No description provided for @authErrorWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'The password is incorrect'**
+  String get authErrorWrongPassword;
+
+  /// No description provided for @authErrorUserNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No account found with that email'**
+  String get authErrorUserNotFound;
+
+  /// No description provided for @authErrorUserDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has been disabled'**
+  String get authErrorUserDisabled;
+
+  /// No description provided for @authErrorTooManyRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many failed attempts. Please try again later'**
+  String get authErrorTooManyRequests;
+
+  /// No description provided for @authErrorNetworkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Please check your internet connection'**
+  String get authErrorNetworkFailed;
+
+  /// No description provided for @authErrorOperationNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'This sign-in method is not available'**
+  String get authErrorOperationNotAllowed;
+
+  /// No description provided for @authErrorGoogleFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign in with Google. Please try again'**
+  String get authErrorGoogleFailed;
+
+  /// No description provided for @authErrorAppleFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign in with Apple. Please try again'**
+  String get authErrorAppleFailed;
+
+  /// No description provided for @authErrorAppleNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple sign in is not available on this device'**
+  String get authErrorAppleNotSupported;
+
+  /// No description provided for @authErrorAppleNotInteractive.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple sign in requires user interaction'**
+  String get authErrorAppleNotInteractive;
+
+  /// No description provided for @authErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'An error occurred. Please try again'**
+  String get authErrorGeneric;
 }
 
 class _AppLocalizationsDelegate

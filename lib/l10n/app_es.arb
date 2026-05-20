@@ -1,4 +1,4 @@
-{
+﻿{
   "@@locale": "es",
 
   "appName": "Hypnos Dream Journal",
@@ -31,6 +31,7 @@
   "validationDisplayNameRequired": "El nombre es obligatorio",
   "validationDisplayNameTooShort": "El nombre debe tener al menos 2 caracteres",
   "validationDisplayNameTooLong": "El nombre no puede superar los 50 caracteres",
+  "validationDisplayNameTaken": "Este nombre ya está en uso, elige otro",
   "validationFieldRequired": "{fieldName} es obligatorio",
   "validationFieldTooShort": "Debe tener al menos {min} caracteres",
   "validationFieldTooLong": "No puede superar los {max} caracteres",
@@ -143,5 +144,45 @@
   "dashboardTopCategories": "Categorías IA más frecuentes",
   "dashboardTopTags": "Etiquetas más usadas",
   "dashboardNoData": "Todavía no hay sueños. ¡Empieza a registrar!",
-  "dashboardNoDreamsThisMonth": "Ninguno este mes"
+  "dashboardNoDreamsThisMonth": "Ninguno este mes",
+
+  "welcomeMorpheusTitle": "Morpheus",
+  "welcomeMorpheusSubtitle": "Tu diario de sueños personal",
+  "welcomeBeginJourney": "Comienza tu viaje",
+  "welcomeAlreadyHaveAccount": "¿Ya tienes una cuenta?",
+  "welcomeLogIn": "Iniciar sesión",
+  "welcomeTagline": "Explora las profundidades de tus sueños",
+
+  "loginPortalTitle": "Entra al Portal Onírico",
+  "loginPortalSubtitle": "Inicia sesión para acceder a tu diario de sueños",
+  "loginForgotPassword": "¿Olvidaste tu contraseña?",
+  "loginSignIn": "Iniciar sesión",
+  "loginNoAccount": "¿No tienes cuenta?",
+
+  "registerPortalTitle": "Crea tu Portal Onírico",
+  "registerPortalSubtitle": "Comienza tu viaje a tu subconsciente",
+  "registerDreamerNameHint": "Tu nombre de soñador",
+  "registerEmailHint": "Tu dirección de correo",
+  "registerCreateAccount": "Crear cuenta",
+  "registerOrSecureAccess": "O continúa con",
+  "registerContinueApple": "Continuar con Apple",
+  "registerContinueGoogle": "Continuar con Google",
+  "registerTermsPrefix": "Al registrarte aceptas nuestros",
+  "registerTermsLink": "Términos y Condiciones",
+  "registerTermsSuffix": ".",
+
+  "authErrorEmailInUse": "Este correo ya está registrado",
+  "authErrorInvalidEmail": "El correo electrónico no es válido",
+  "authErrorWeakPassword": "La contraseña es demasiado débil",
+  "authErrorWrongPassword": "La contraseña no es correcta",
+  "authErrorUserNotFound": "No existe ninguna cuenta con ese correo",
+  "authErrorUserDisabled": "Esta cuenta ha sido desactivada",
+  "authErrorTooManyRequests": "Demasiados intentos fallidos. Inténtalo más tarde",
+  "authErrorNetworkFailed": "Error de red. Comprueba tu conexión a internet",
+  "authErrorOperationNotAllowed": "Este método de inicio de sesión no está disponible",
+  "authErrorGoogleFailed": "No se pudo iniciar sesión con Google. Inténtalo de nuevo",
+  "authErrorAppleFailed": "No se pudo iniciar sesión con Apple. Inténtalo de nuevo",
+  "authErrorAppleNotSupported": "Inicio de sesión con Apple no disponible en este dispositivo",
+  "authErrorAppleNotInteractive": "El inicio de sesión con Apple requiere interacción del usuario",
+  "authErrorGeneric": "Ha ocurrido un error. Inténtalo de nuevo"
 }

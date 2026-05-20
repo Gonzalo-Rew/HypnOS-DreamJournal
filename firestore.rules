@@ -17,17 +17,7 @@ service cloud.firestore {
     }
 
     function validUserDocumentCreate() {
-      return request.resource.data.keys().hasOnly([
-               'displayName',
-               'email',
-               'createdAt',
-               'aiEnabled',
-               'timezone',
-               'photoUrl',
-               'notificationsEnabled',
-               'notificationTime'
-             ])
-             && request.resource.data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
                'displayName',
                'email',
                'createdAt',
@@ -52,48 +42,18 @@ service cloud.firestore {
     }
 
     function validUserDocumentUpdate() {
-      return request.resource.data.keys().hasOnly([
-               'displayName',
-               'email',
-               'createdAt',
-               'aiEnabled',
-               'timezone',
-               'photoUrl',
-               'notificationsEnabled',
-               'notificationTime'
-             ])
-             && request.resource.data.createdAt == resource.data.createdAt
+      return request.resource.data.createdAt == resource.data.createdAt
+             && request.resource.data.email == resource.data.email
              && request.resource.data.displayName is string
              && request.resource.data.displayName.size() > 0
-             && request.resource.data.email is string
-             && request.resource.data.email.size() > 0
-             && request.resource.data.aiEnabled is bool
-             && request.resource.data.timezone is string
-             && request.resource.data.timezone.size() > 0
-             && (!('photoUrl' in request.resource.data)
-                 || request.resource.data.photoUrl == null
-                 || request.resource.data.photoUrl is string)
-             && request.resource.data.notificationsEnabled is bool
-             && validNotificationTime(request.resource.data.notificationTime);
+             && (!('dreamVisibility' in request.resource.data)
+                 || request.resource.data.dreamVisibility in ['public', 'followers', 'private'])
+             && (!('notificationTime' in request.resource.data)
+                 || validNotificationTime(request.resource.data.notificationTime));
     }
 
     function validDreamBaseDocument(data) {
-      return data.keys().hasOnly([
-               'title',
-               'text',
-               'dreamDate',
-               'createdAt',
-               'updatedAt',
-               'moodScore',
-               'tags',
-               'contextNotes',
-               'aiCategory',
-               'hasAudio',
-               'audioPath',
-               'transcription',
-               'aiSummary'
-             ])
-             && data.title is string
+      return data.title is string
              && data.title.size() > 0
              && data.text is string
              && data.text.size() > 0
@@ -147,9 +107,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // User profile: only the owner can read/write
+    // User profile: owner has full access; any authenticated user can read (public profiles)
     match /users/{userId} {
-      allow read, delete: if isOwner(userId);
+      allow read: if isSignedIn();
+      allow delete: if isOwner(userId);
       allow create: if isOwner(userId) && validUserDocumentCreate();
       allow update: if isOwner(userId) && validUserDocumentUpdate();
 
@@ -171,6 +132,76 @@ service cloud.firestore {
                                && request.resource.data.generatedAt != null;
 
         allow delete: if isOwner(userId);
+      }
+    }
+    // ── Username reservations ─────────────────────────────────────────────────
+    // Document ID is the lowercased displayName. Ensures uniqueness across users.
+    match /usernames/{name} {
+      // Public read: anyone can check if a name is taken (no sensitive data here)
+      allow read: if true;
+      // Only the uid owner of the reservation can create or delete it
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.displayName is string;
+      allow delete: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+    }
+    // ── Social: follows ──────────────────────────────────────────────────────
+    // Document ID format: "{followerId}_{followingId}"
+    match /follows/{docId} {
+      // Any authenticated user can read follow relationships
+      allow read: if isSignedIn();
+      // Only the follower can create/delete their own follow
+      allow create, delete: if isSignedIn()
+                             && request.resource.data.followerId == request.auth.uid;
+    }
+
+    // ── Social: follow requests ───────────────────────────────────────────────
+    // Document ID format: "{requesterId}_{targetId}"
+    match /followRequests/{docId} {
+      // Individual document read: only the requester or the target can read
+      allow get: if isSignedIn()
+                 && (resource.data.requesterId == request.auth.uid
+                     || resource.data.targetId == request.auth.uid);
+      // Collection queries (e.g. "where targetId == uid"): any signed-in user
+      // resource.data is not available at query-evaluation time, so we allow
+      // list for signed-in users and rely on client-side query constraints.
+      allow list: if isSignedIn();
+      // Only the requester can create a request for themselves
+      allow create: if isSignedIn()
+                    && request.resource.data.requesterId == request.auth.uid;
+      // Either party can delete (requester cancels, target accepts/declines)
+      allow delete: if isSignedIn()
+                    && (resource.data.requesterId == request.auth.uid
+                        || resource.data.targetId == request.auth.uid);
+    }
+
+    // ── Social: public dreams ─────────────────────────────────────────────────
+    match /publicDreams/{dreamId} {
+      // Any authenticated user can read public dreams
+      allow read: if isSignedIn();
+      // Only the dream owner can create/update/delete the public dream doc
+      allow create, update: if isSignedIn()
+                             && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+
+      // Likes subcollection: document ID is the user's UID
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        // Users can only manage their own like
+        allow create, delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        // Any authenticated user can add a comment
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid;
+        // Only the comment author can delete their comment
+        allow delete: if isSignedIn()
+                      && resource.data.userId == request.auth.uid;
       }
     }
   }

@@ -1,5 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/data/models/user_model.dart' as model;
@@ -32,6 +36,12 @@ abstract class AuthRepository {
   /// Listen to auth state changes
   Stream<model.User?> authStateChanges();
 
+  /// Sign in with Google
+  Future<Result<void>> signInWithGoogle();
+
+  /// Sign in with Apple
+  Future<Result<void>> signInWithApple();
+
   /// Update user profile
   Future<Result<void>> updateUserProfile({
     String? displayName,
@@ -56,6 +66,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
+    fa.User? createdAuthUser;
     try {
       // Validate inputs
       if (email.isEmpty || password.isEmpty || displayName.isEmpty) {
@@ -69,34 +80,66 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
+      final nameKey = displayName.trim().toLowerCase();
+
       // Create user account
       final userCredential = await FirebaseService.auth
           .createUserWithEmailAndPassword(email: email, password: password);
+      createdAuthUser = userCredential.user;
 
-      // Update display name
-      await userCredential.user?.updateDisplayName(displayName);
+      // Update display name in Firebase Auth
+      await createdAuthUser?.updateDisplayName(displayName.trim());
 
-      // Create user document in Firestore
-      final user = model.User(
-        id: userCredential.user!.uid,
-        email: email,
-        displayName: displayName,
-        createdAt: DateTime.now(),
-        aiEnabled: true,
-        timezone: 'UTC',
-        notificationsEnabled: true,
-        notificationTime: '08:00',
-      );
+      final uid = createdAuthUser!.uid;
+      final userRef = _firestore.collection('users').doc(uid);
+      final usernameRef = _firestore.collection('usernames').doc(nameKey);
 
-      await _firestore.collection('users').doc(user.id).set(user.toFirestore());
+      // Atomically claim the username + create user document
+      await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(usernameRef);
+        if (snap.exists) {
+          throw ValidationException(
+            message: 'display_name_taken',
+            field: 'displayName',
+          );
+        }
+        final user = model.User(
+          id: uid,
+          email: email,
+          displayName: displayName.trim(),
+          createdAt: DateTime.now(),
+          aiEnabled: true,
+          timezone: 'UTC',
+          notificationsEnabled: true,
+          notificationTime: '08:00',
+        );
+        tx.set(usernameRef, {'uid': uid, 'displayName': displayName.trim()});
+        tx.set(userRef, user.toFirestore());
+      });
 
       return const Success(null);
+    } on ValidationException catch (e) {
+      // Clean up auth user if we already created it before the race condition
+      await createdAuthUser?.delete();
+      if (e.message == 'display_name_taken') {
+        return Failure(
+          ValidationException(
+            message: 'display_name_taken',
+            field: 'displayName',
+          ),
+        );
+      }
+      return Failure(AuthException(message: e.message));
     } on fa.FirebaseAuthException catch (e) {
       return Failure(
         AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
       );
     } catch (e) {
-      return Failure(AuthException(message: 'Sign up failed: $e'));
+      await createdAuthUser?.delete();
+      debugPrint('[Auth] signUp error: $e');
+      return Failure(
+        AuthException(message: 'auth-generic', code: 'auth-generic'),
+      );
     }
   }
 
@@ -121,7 +164,10 @@ class AuthRepositoryImpl implements AuthRepository {
         AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
       );
     } catch (e) {
-      return Failure(AuthException(message: 'Sign in failed: $e'));
+      debugPrint('[Auth] signIn error: $e');
+      return Failure(
+        AuthException(message: 'auth-generic', code: 'auth-generic'),
+      );
     }
   }
 
@@ -131,7 +177,10 @@ class AuthRepositoryImpl implements AuthRepository {
       await FirebaseService.auth.signOut();
       return const Success(null);
     } catch (e) {
-      return Failure(AuthException(message: 'Sign out failed: $e'));
+      debugPrint('[Auth] signOut error: $e');
+      return Failure(
+        AuthException(message: 'Sign out failed. Please try again.'),
+      );
     }
   }
 
@@ -149,7 +198,10 @@ class AuthRepositoryImpl implements AuthRepository {
         AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
       );
     } catch (e) {
-      return Failure(AuthException(message: 'Password reset failed: $e'));
+      debugPrint('[Auth] passwordReset error: $e');
+      return Failure(
+        AuthException(message: 'Password reset failed. Please try again.'),
+      );
     }
   }
 
@@ -207,14 +259,6 @@ class AuthRepositoryImpl implements AuthRepository {
         throw AuthException(message: 'No user logged in');
       }
 
-      // Update Firebase Auth profile
-      if (displayName != null) {
-        await currentUser.updateDisplayName(displayName);
-      }
-      if (photoUrl != null) {
-        await currentUser.updatePhotoURL(photoUrl);
-      }
-
       if (notificationTime != null &&
           !_isValidNotificationTime(notificationTime)) {
         throw ValidationException(
@@ -223,9 +267,53 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
+      // ── Handle displayName uniqueness ────────────────────────────────────
+      if (displayName != null) {
+        final newKey = displayName.trim().toLowerCase();
+
+        // Fetch the current displayName to know the old key
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+        final oldName = userDoc.data()?['displayName'] as String? ?? '';
+        final oldKey = oldName.toLowerCase();
+
+        if (newKey != oldKey) {
+          // Check availability + atomically swap reservations
+          await _firestore.runTransaction((tx) async {
+            final newRef = _firestore.collection('usernames').doc(newKey);
+            final snap = await tx.get(newRef);
+            if (snap.exists &&
+                (snap.data()?['uid'] as String?) != currentUser.uid) {
+              throw ValidationException(
+                message: 'display_name_taken',
+                field: 'displayName',
+              );
+            }
+            // Release old reservation (best-effort; ignore if not found)
+            if (oldKey.isNotEmpty) {
+              final oldRef = _firestore.collection('usernames').doc(oldKey);
+              tx.delete(oldRef);
+            }
+            // Claim new name
+            tx.set(newRef, {
+              'uid': currentUser.uid,
+              'displayName': displayName.trim(),
+            });
+          });
+        }
+
+        await currentUser.updateDisplayName(displayName.trim());
+      }
+
+      if (photoUrl != null) {
+        await currentUser.updatePhotoURL(photoUrl);
+      }
+
       // Update Firestore document
       final updateData = <String, dynamic>{};
-      if (displayName != null) updateData['displayName'] = displayName;
+      if (displayName != null) updateData['displayName'] = displayName.trim();
       if (photoUrl != null) updateData['photoUrl'] = photoUrl;
       if (aiEnabled != null) updateData['aiEnabled'] = aiEnabled;
       if (timezone != null) updateData['timezone'] = timezone;
@@ -236,24 +324,181 @@ class AuthRepositoryImpl implements AuthRepository {
         updateData['notificationTime'] = notificationTime;
       }
 
-      if (updateData.isEmpty) {
-        return const Success(null);
+      if (updateData.isNotEmpty) {
+        await _firestore
+            .collection('users')
+            .doc(currentUser.uid)
+            .update(updateData);
       }
 
-      await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .update(updateData);
-
       return const Success(null);
+    } on ValidationException catch (e) {
+      if (e.message == 'display_name_taken') {
+        return Failure(
+          ValidationException(
+            message: 'display_name_taken',
+            field: 'displayName',
+          ),
+        );
+      }
+      return Failure(AuthException(message: e.message));
     } catch (e) {
-      return Failure(AuthException(message: 'Profile update failed: $e'));
+      debugPrint('[Auth] updateUserProfile error: $e');
+      return Failure(
+        AuthException(message: 'Profile update failed. Please try again.'),
+      );
     }
+  }
+
+  @override
+  Future<Result<void>> signInWithGoogle() async {
+    try {
+      final googleSignIn = GoogleSignIn();
+      // Sign out first to always show the account picker
+      await googleSignIn.signOut();
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled — not an error
+        return const Success(null);
+      }
+      final googleAuth = await googleUser.authentication;
+      final credential = fa.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final userCredential = await FirebaseService.auth.signInWithCredential(
+        credential,
+      );
+      await _ensureUserDocument(userCredential.user!);
+      return const Success(null);
+    } on fa.FirebaseAuthException catch (e) {
+      return Failure(
+        AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
+      );
+    } on PlatformException catch (e) {
+      final code = _getGooglePlatformErrorCode(e);
+      return Failure(AuthException(message: code, code: code));
+    } catch (e) {
+      debugPrint('[Auth] signInWithGoogle error: $e');
+      return Failure(
+        AuthException(message: 'google-failed', code: 'google-failed'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> signInWithApple() async {
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final oauthCredential = fa.OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      final userCredential = await FirebaseService.auth.signInWithCredential(
+        oauthCredential,
+      );
+      final appleDisplayName = [
+        appleCredential.givenName,
+        appleCredential.familyName,
+      ].where((p) => p != null && p.isNotEmpty).join(' ');
+      await _ensureUserDocument(
+        userCredential.user!,
+        fallbackDisplayName: appleDisplayName.isNotEmpty
+            ? appleDisplayName
+            : null,
+      );
+      return const Success(null);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        // User cancelled — not an error
+        return const Success(null);
+      }
+      return Failure(
+        AuthException(
+          message: _getAppleErrorCode(e.code),
+          code: _getAppleErrorCode(e.code),
+        ),
+      );
+    } on fa.FirebaseAuthException catch (e) {
+      return Failure(
+        AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
+      );
+    } on PlatformException catch (e) {
+      debugPrint(
+        '[Auth] signInWithApple PlatformException: ${e.code} — ${e.message}',
+      );
+      return Failure(
+        AuthException(message: 'apple-failed', code: 'apple-failed'),
+      );
+    } catch (e) {
+      debugPrint('[Auth] signInWithApple error: $e');
+      return Failure(
+        AuthException(message: 'apple-failed', code: 'apple-failed'),
+      );
+    }
+  }
+
+  /// Creates a Firestore user document on first OAuth sign-in.
+  /// If the document already exists the method is a no-op.
+  Future<void> _ensureUserDocument(
+    fa.User firebaseUser, {
+    String? fallbackDisplayName,
+  }) async {
+    final doc = await _firestore
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
+    if (doc.exists) return;
+    final displayName =
+        firebaseUser.displayName ??
+        fallbackDisplayName ??
+        firebaseUser.email?.split('@').first ??
+        'Dreamer';
+    final user = model.User(
+      id: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName: displayName,
+      photoUrl: firebaseUser.photoURL,
+      createdAt: DateTime.now(),
+      aiEnabled: true,
+      timezone: 'UTC',
+      notificationsEnabled: true,
+      notificationTime: '08:00',
+    );
+    await _firestore.collection('users').doc(user.id).set(user.toFirestore());
   }
 
   bool _isValidNotificationTime(String value) {
     final timeRegex = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$');
     return timeRegex.hasMatch(value);
+  }
+
+  /// Maps Apple authorization error codes to stable semantic codes.
+  String _getAppleErrorCode(AuthorizationErrorCode code) {
+    return switch (code) {
+      AuthorizationErrorCode.notHandled => 'apple-not-supported',
+      AuthorizationErrorCode.notInteractive => 'apple-not-interactive',
+      _ => 'apple-failed',
+    };
+  }
+
+  /// Maps Google Sign-In PlatformException to a stable semantic code.
+  String _getGooglePlatformErrorCode(PlatformException e) {
+    final msg = e.message ?? '';
+    final match = RegExp(r'ApiException:\s*(\d+)').firstMatch(msg);
+    final apiCode = match != null ? int.tryParse(match.group(1) ?? '') : null;
+    debugPrint(
+      '[Auth] Google PlatformException: code=${e.code} apiCode=$apiCode msg=$msg',
+    );
+    return switch (apiCode) {
+      7 => 'network-request-failed',
+      _ => 'google-failed',
+    };
   }
 
   /// Helper to get user-friendly error message from Firebase error code
@@ -273,7 +518,10 @@ class AuthRepositoryImpl implements AuthRepository {
         'Too many failed login attempts. Please try again later.',
       'network-request-failed' =>
         'Network error. Please check your internet connection.',
-      _ => 'An authentication error occurred: $code',
+      _ => () {
+        debugPrint('[Auth] FirebaseAuthException unmapped code: $code');
+        return 'auth-generic';
+      }(),
     };
   }
 }

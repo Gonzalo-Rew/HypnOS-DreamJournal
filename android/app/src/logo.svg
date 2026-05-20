@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Gradiente del fondo oscuro -->
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#1c1c28" />
+      <stop offset="100%" stop-color="#0f0f13" />
+    </radialGradient>
+
+    <!-- Gradiente del núcleo brillante (Cyan a Púrpura) -->
+    <radialGradient id="coreGradient" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#64f0f0" />
+      <stop offset="40%" stop-color="#4b8dfa" />
+      <stop offset="80%" stop-color="#a85bf0" />
+      <stop offset="100%" stop-color="#6a2fa0" />
+    </radialGradient>
+
+    <!-- Gradientes de la cáscara exterior (Efecto iridiscente) -->
+    <linearGradient id="shellTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#80e0e0" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#b080f0" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#201040" stop-opacity="0.9" />
+    </linearGradient>
+
+    <linearGradient id="shellBottom" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#d080f0" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#4060d0" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#102030" stop-opacity="0.9" />
+    </linearGradient>
+
+    <!-- Sombra base -->
+    <radialGradient id="shadowGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5a2fa0" stop-opacity="0.6"/>
+      <stop offset="30%" stop-color="#3a1f80" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Filtros de resplandor y desenfoque -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <filter id="shadowBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" />
+    </filter>
+
+    <!-- Patrón de textura (simula el ruido de la imagen original) -->
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.15 0" />
+    </filter>
+  </defs>
+
+  <style>
+    /* Animación de flotación para todo el objeto */
+    .floating {
+      animation: float 6s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    /* Animación de giro para la cáscara exterior */
+    .spinning {
+      animation: spin 15s linear infinite;
+      transform-origin: 400px 400px;
+    }
+
+    /* Animación de latido/brillo para el núcleo */
+    .pulsing {
+      animation: pulse 4s ease-in-out infinite;
+      transform-origin: 400px 400px;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+      100% { transform: translateY(0px); }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.03); filter: brightness(1.2); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+  </style>
+
+  <!-- Fondo -->
+  <rect width="100%" height="100%" fill="url(#bgGradient)" />
+
+  <!-- Grupo principal animado (Flotación) -->
+  <g class="floating">
+    
+    <!-- Sombra inferior -->
+    <ellipse cx="400" cy="650" rx="120" ry="20" fill="url(#shadowGradient)" filter="url(#shadowBlur)" />
+
+    <!-- Núcleo brillante -->
+    <circle cx="400" cy="400" r="140" fill="url(#coreGradient)" filter="url(#glow)" class="pulsing" />
+    
+    <!-- Textura de ruido superpuesta sobre el núcleo -->
+    <circle cx="400" cy="400" r="140" fill="transparent" filter="url(#noise)" style="mix-blend-mode: overlay;" />
+
+    <!-- Cáscara exterior giratoria -->
+    <g class="spinning">
+      
+      <!-- Parte superior derecha de la cáscara -->
+      <!-- Usa una curva Bezier compleja para simular el pliegue 3D -->
+      <path d="M 230,400 
+               C 230,260 300,200 450,220 
+               C 560,235 590,320 570,430 
+               C 540,330 430,290 320,360 
+               C 270,390 240,410 230,400 Z" 
+            fill="url(#shellTop)" 
+            filter="drop-shadow(0px 10px 15px rgba(0,0,0,0.5))"/>
+
+      <!-- Parte inferior izquierda de la cáscara -->
+      <path d="M 570,400 
+               C 570,540 500,600 350,580 
+               C 240,565 210,480 230,370 
+               C 260,470 370,510 480,440 
+               C 530,410 560,390 570,400 Z" 
+            fill="url(#shellBottom)" 
+            filter="drop-shadow(0px -10px 15px rgba(0,0,0,0.5))"/>
+            
+      <!-- Reflejos sutiles en los bordes para dar volumen -->
+      <path d="M 230,400 C 230,260 300,200 450,220" fill="none" stroke="#aaffff" stroke-width="4" stroke-linecap="round" opacity="0.6" filter="url(#glow)"/>
+      <path d="M 570,400 C 570,540 500,600 350,580" fill="none" stroke="#d0aaff" stroke-width="4" stroke-linecap="round" opacity="0.4" filter="url(#glow)"/>
+    </g>
+
+  </g>
+</svg>

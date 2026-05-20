@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
+import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
+import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
@@ -9,6 +13,7 @@ import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/gemini_service.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/audio_player_widget.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_form_screen.dart';
 
@@ -23,6 +28,7 @@ class DreamDetailScreen extends StatefulWidget {
 
 class _DreamDetailScreenState extends State<DreamDetailScreen> {
   final DreamRepository _dreamRepository = DreamRepositoryImpl();
+  final SocialRepository _social = SocialRepositoryImpl();
   late Dream _dream;
 
   bool _isDeleting = false;
@@ -69,7 +75,10 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       if (result is Success<Dream>) {
         _dream = result.value;
       } else {
-        _errorMessage = (result as Failure<Dream>).exception.toString();
+        _errorMessage = AppError.handle(
+          (result as Failure<Dream>).exception,
+          'DreamDetail.refresh',
+        );
       }
     });
   }
@@ -133,7 +142,10 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
 
     setState(() {
       _isDeleting = false;
-      _errorMessage = (result as Failure<void>).exception.toString();
+      _errorMessage = AppError.handle(
+        (result as Failure<void>).exception,
+        'DreamDetail.delete',
+      );
     });
   }
 
@@ -143,19 +155,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       _analysisError = null;
     });
 
-    final apiKey = await AppSettings.instance.getGeminiApiKey();
     if (!mounted) return;
-
-    if (apiKey == null) {
-      setState(() {
-        _isAnalyzing = false;
-        _analysisError =
-            AppLocalizations.of(context).dreamDetailAnalysisNoKey;
-      });
-      return;
-    }
-
-    GeminiService.instance.initialize(apiKey);
 
     final result = await GeminiService.instance.analyzeDream(
       title: _dream.title,
@@ -191,7 +191,10 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       final failure = result as Failure<DreamAnalysis>;
       setState(() {
         _isAnalyzing = false;
-        _analysisError = failure.exception.toString();
+        _analysisError = AppError.handle(
+          failure.exception,
+          'DreamDetail.analyze',
+        );
       });
     }
   }
@@ -276,9 +279,9 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
               Text(
                 l.dreamDetailAudioSection,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                    ),
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
               for (var i = 0; i < _dream.audioPaths.length; i++) ...[
                 const SizedBox(height: AppSpacing.xs),
@@ -288,8 +291,8 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                     child: Text(
                       'Audio ${i + 1}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 AudioPlayerWidget(remoteUrl: _dream.audioPaths[i]),
@@ -302,9 +305,9 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
               Text(
                 l.dreamDetailTranscription,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                    ),
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Card(
@@ -337,15 +340,31 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.auto_awesome_outlined, color: Colors.grey, size: 16),
+                    const Icon(
+                      Icons.auto_awesome_outlined,
+                      color: Colors.grey,
+                      size: 16,
+                    ),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       AppLocalizations.of(context).profileAiEnabledHint,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
               ),
+            // ── Social (likes & comments) — only for published dreams ────
+            if (_dream.isPublished) ...[
+              const SizedBox(height: AppSpacing.md),
+              _SocialBar(
+                dreamId: _dream.id,
+                dreamTitle: _dream.title,
+                social: _social,
+                currentUserId: FirebaseService.getCurrentUser()?.uid ?? '',
+              ),
+            ],
             // ─────────────────────────────────────────────────────────────
             if (_errorMessage != null) ...[
               const SizedBox(height: AppSpacing.sm),
@@ -412,13 +431,17 @@ class _AiAnalysisSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: AppColors.accentPrimary, size: 18),
+              const Icon(
+                Icons.auto_awesome,
+                color: AppColors.accentPrimary,
+                size: 18,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 l.dreamDetailAiAnalysis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: AppColors.textPrimary),
               ),
             ],
           ),
@@ -426,14 +449,17 @@ class _AiAnalysisSection extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               analysisError!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             ),
           ],
           if (analysis != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            _AnalysisRow(label: l.dreamDetailAiSentiment, value: analysis!.sentiment),
+            _AnalysisRow(
+              label: l.dreamDetailAiSentiment,
+              value: analysis!.sentiment,
+            ),
             if (analysis!.emotions.isNotEmpty)
               _AnalysisRow(
                 label: l.dreamDetailAiEmotions,
@@ -459,8 +485,8 @@ class _AiAnalysisSection extends StatelessWidget {
               Text(
                 l.dreamDetailAiPsychNote,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.accentSecondary,
-                    ),
+                  color: AppColors.accentSecondary,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -470,10 +496,7 @@ class _AiAnalysisSection extends StatelessWidget {
             ],
           ] else if (aiSummary != null && aiSummary!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              aiSummary!,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(aiSummary!, style: Theme.of(context).textTheme.bodyMedium),
           ],
           const SizedBox(height: AppSpacing.sm),
           OutlinedButton.icon(
@@ -488,7 +511,9 @@ class _AiAnalysisSection extends StatelessWidget {
                     ),
                   )
                 : const Icon(Icons.auto_awesome, size: 16),
-            label: Text(isAnalyzing ? l.dreamDetailAnalyzing : l.dreamDetailAnalyzeButton),
+            label: Text(
+              isAnalyzing ? l.dreamDetailAnalyzing : l.dreamDetailAnalyzeButton,
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.accentPrimary,
               side: const BorderSide(color: AppColors.accentPrimary),
@@ -515,15 +540,160 @@ class _AnalysisRow extends StatelessWidget {
           Text(
             '$label: ',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.accentSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.accentSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Social bar (likes + comments) ─────────────────────────────────────────────
+
+class _SocialBar extends StatefulWidget {
+  const _SocialBar({
+    required this.dreamId,
+    required this.dreamTitle,
+    required this.social,
+    required this.currentUserId,
+  });
+
+  final String dreamId;
+  final String dreamTitle;
+  final SocialRepository social;
+  final String currentUserId;
+
+  @override
+  State<_SocialBar> createState() => _SocialBarState();
+}
+
+class _SocialBarState extends State<_SocialBar> {
+  bool _isLikeLoading = false;
+
+  Future<void> _toggleLike(bool isLiked) async {
+    if (widget.currentUserId.isEmpty) return;
+    setState(() => _isLikeLoading = true);
+    if (isLiked) {
+      await widget.social.unlikeDream(
+        userId: widget.currentUserId,
+        dreamId: widget.dreamId,
+      );
+    } else {
+      await widget.social.likeDream(
+        userId: widget.currentUserId,
+        dreamId: widget.dreamId,
+      );
+    }
+    if (mounted) setState(() => _isLikeLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          // Like button
+          if (widget.currentUserId.isNotEmpty)
+            StreamBuilder<bool>(
+              stream: widget.social.isDreamLiked(
+                userId: widget.currentUserId,
+                dreamId: widget.dreamId,
+              ),
+              builder: (_, snap) {
+                final isLiked = snap.data ?? false;
+                return GestureDetector(
+                  onTap: _isLikeLoading ? null : () => _toggleLike(isLiked),
+                  child: Row(
+                    children: [
+                      _isLikeLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: AppColors.error,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_outline,
+                              color: isLiked
+                                  ? AppColors.error
+                                  : AppColors.textSecondary,
+                              size: 22,
+                            ),
+                    ],
+                  ),
+                );
+              },
             ),
+
+          // Like count from publicDreams doc
+          const SizedBox(width: 6),
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: FirebaseService.firestore
+                .collection('publicDreams')
+                .doc(widget.dreamId)
+                .snapshots(),
+            builder: (_, snap) {
+              final data = snap.data?.data();
+              final likes = data?['likesCount'] as int? ?? 0;
+              final comments = data?['commentsCount'] as int? ?? 0;
+
+              return Row(
+                children: [
+                  Text(
+                    '$likes',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CommentsScreen(
+                          dreamId: widget.dreamId,
+                          dreamTitle: widget.dreamTitle,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          color: AppColors.textSecondary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$comments',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

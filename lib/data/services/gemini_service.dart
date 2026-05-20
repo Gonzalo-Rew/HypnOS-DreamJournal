@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 
@@ -37,11 +38,18 @@ class DreamAnalysis {
     List<String> extractList(String key) {
       final raw = extract(key);
       if (raw.isEmpty) return [];
-      return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return raw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
 
     String extractBlock(String key) {
-      final pattern = RegExp('$key:\\s*([\\s\\S]+?)(?=\\n[A-Z_]+:|\$)', caseSensitive: false);
+      final pattern = RegExp(
+        '$key:\\s*([\\s\\S]+?)(?=\\n[A-Z_]+:|\$)',
+        caseSensitive: false,
+      );
       final match = pattern.firstMatch(rawText);
       return match?.group(1)?.trim() ?? '';
     }
@@ -76,47 +84,18 @@ class DreamAnalysis {
       'DreamAnalysis(sentiment: $sentiment, category: $category, themes: $themes)';
 }
 
-/// Service for Gemini AI dream analysis.
+/// Service for Gemini AI dream analysis — calls Firebase Cloud Functions.
+/// The API key lives exclusively in Firebase Secret Manager; it never
+/// reaches the client device.
 class GeminiService {
   GeminiService._();
 
   static final GeminiService instance = GeminiService._();
 
-  GenerativeModel? _model;
+  final _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  static const String _modelName = 'gemini-1.5-flash';
-
-  static const String _analysisPromptTemplate = '''
-You are a compassionate dream analyst. Analyze the following dream entry and respond in EXACTLY this format (no extra text):
-
-SENTIMENT: [positive/neutral/negative/mixed]
-CATEGORY: [one of: Adventure, Nightmare, Fantasy, Romantic, Surreal, Anxiety, Nostalgic, Spiritual, Neutral]
-EMOTIONS: [comma-separated list of up to 5 emotions detected, e.g.: joy, fear, confusion]
-CHARACTERS: [comma-separated list of up to 5 characters/entities, e.g.: unknown figure, childhood friend]
-PLACES: [comma-separated list of up to 3 places, e.g.: forest, old house]
-THEMES: [comma-separated list of up to 4 recurring themes, e.g.: pursuit, transformation, loss]
-PSYCHOLOGICAL_NOTE: [2-3 sentences of empathetic psychological insight, no diagnosis]
-SUMMARY: [1-2 sentence compassionate summary of the dream]
-
-Dream title: {title}
-Dream text: {text}
-Mood score (1-5): {moodScore}
-Context: {context}
-''';
-
-  /// Initialize the Gemini service with the provided API key.
-  void initialize(String apiKey) {
-    _model = GenerativeModel(
-      model: _modelName,
-      apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        maxOutputTokens: 512,
-      ),
-    );
-  }
-
-  bool get isInitialized => _model != null;
+  // Always ready — no client-side initialisation needed.
+  bool get isInitialized => true;
 
   /// Analyze a dream entry and return structured insights.
   Future<Result<DreamAnalysis>> analyzeDream({
@@ -125,14 +104,6 @@ Context: {context}
     int? moodScore,
     String? contextNotes,
   }) async {
-    if (_model == null) {
-      return Failure(
-        AppException(
-          message: 'Gemini service not initialized. Call initialize(apiKey) first.',
-        ),
-      );
-    }
-
     if (text.trim().isEmpty) {
       return Failure(
         ValidationException(message: 'Dream text cannot be empty for analysis'),
@@ -140,62 +111,55 @@ Context: {context}
     }
 
     try {
-      final prompt = _analysisPromptTemplate
-          .replaceAll('{title}', title)
-          .replaceAll('{text}', text)
-          .replaceAll('{moodScore}', moodScore?.toString() ?? 'not specified')
-          .replaceAll('{context}', contextNotes ?? 'none');
+      final callable = _functions.httpsCallable('analyzeDream');
+      final response = await callable.call<Map<String, dynamic>>({
+        'title': title,
+        'text': text,
+        'moodScore': moodScore,
+        'contextNotes': contextNotes,
+      });
 
-      final response = await _model!.generateContent([Content.text(prompt)]);
-      final rawText = response.text;
-
+      final rawText = response.data['analysisText'] as String?;
       if (rawText == null || rawText.isEmpty) {
-        return Failure(AppException(message: 'Gemini returned an empty response'));
+        return Failure(
+          AppException(message: 'Morfeo returned an empty response'),
+        );
       }
 
-      final analysis = DreamAnalysis.fromText(rawText);
-      return Success(analysis);
-    } on GenerativeAIException catch (e) {
-      return Failure(
-        AppException(message: 'Gemini API error: ${e.message}'),
-      );
+      return Success(DreamAnalysis.fromText(rawText));
+    } on FirebaseFunctionsException catch (e) {
+      return Failure(AppException(message: 'Morfeo error: ${e.message}'));
     } catch (e) {
       return Failure(AppException(message: 'Failed to analyze dream: $e'));
     }
   }
 
-  /// Transcribe audio content using Gemini multimodal (requires audio bytes).
-  /// Uses inline data for short audio clips.
+  /// Transcribe audio content using Gemini multimodal via Cloud Function.
   Future<Result<String>> transcribeAudioBytes({
     required Uint8List audioBytes,
     String mimeType = 'audio/m4a',
   }) async {
-    if (_model == null) {
-      return Failure(
-        AppException(message: 'Gemini service not initialized.'),
-      );
-    }
-
     try {
-      const prompt =
-          'Transcribe the following audio recording of a person describing their dream. '
-          'Output only the transcription text, nothing else.';
+      final audioBase64 = base64Encode(audioBytes);
 
-      final response = await _model!.generateContent([
-        Content.multi([
-          TextPart(prompt),
-          DataPart(mimeType, audioBytes),
-        ]),
-      ]);
+      final callable = _functions.httpsCallable('transcribeAudio');
+      final response = await callable.call<Map<String, dynamic>>({
+        'audioBase64': audioBase64,
+        'mimeType': mimeType,
+      });
 
-      final text = response.text;
+      final text = response.data['transcription'] as String?;
       if (text == null || text.isEmpty) {
-        return Failure(AppException(message: 'Transcription returned empty result'));
+        return Failure(
+          AppException(message: 'Transcription returned empty result'),
+        );
       }
 
       return Success(text.trim());
-    } on GenerativeAIException catch (e) {
-      return Failure(AppException(message: 'Gemini transcription error: ${e.message}'));
+    } on FirebaseFunctionsException catch (e) {
+      return Failure(
+        AppException(message: 'Morfeo transcription error: ${e.message}'),
+      );
     } catch (e) {
       return Failure(AppException(message: 'Failed to transcribe audio: $e'));
     }
