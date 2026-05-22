@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
-import 'package:hypnos_dreamjournal/features/auth/presentation/login_screen.dart';
-import 'package:hypnos_dreamjournal/features/home/presentation/home_screen.dart';
+import 'package:hypnos_dreamjournal/features/auth/presentation/welcome_screen.dart';
+import 'package:hypnos_dreamjournal/app/main_shell.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 
 class AuthGate extends StatelessWidget {
@@ -19,10 +19,10 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          return const HomeScreen();
+          return const MainShell();
         }
 
-        return const LoginScreen();
+        return const WelcomeScreen();
       },
     );
   }

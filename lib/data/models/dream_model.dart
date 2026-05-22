@@ -1,4 +1,8 @@
+/// Visibility options for a published dream.
+enum DreamVisibility { public, followers, private }
+
 /// Dream document stored under users/{uid}/dreams/{dreamId}.
+/// When isPublished=true, a mirror copy lives in publicDreams/{dreamId}.
 class Dream {
   final String id;
   final String userId;
@@ -14,6 +18,14 @@ class Dream {
   final List<String> audioPaths;
   final String? transcription;
   final String? aiSummary;
+
+  /// Full structured result from Gemini analysis (emotions, places, characters, themes, etc.).
+  final Map<String, dynamic>? aiAnalysis;
+  final Map<String, dynamic>? aiAnalysisByLanguage;
+  final bool isPublished;
+  final DreamVisibility visibility;
+  final int likesCount;
+  final int commentsCount;
 
   bool get hasAudio => audioPaths.isNotEmpty;
 
@@ -32,6 +44,12 @@ class Dream {
     List<String>? audioPaths,
     this.transcription,
     this.aiSummary,
+    this.aiAnalysis,
+    this.aiAnalysisByLanguage,
+    this.isPublished = false,
+    this.visibility = DreamVisibility.private,
+    this.likesCount = 0,
+    this.commentsCount = 0,
   }) : audioPaths = audioPaths ?? const [];
 
   factory Dream.fromFirestore(
@@ -54,6 +72,16 @@ class Dream {
       audioPaths: _readAudioPaths(data),
       transcription: data['transcription'] as String?,
       aiSummary: data['aiSummary'] as String?,
+      aiAnalysis:
+          _readStringDynamicMap(data['aiAnalysis']) ??
+          _readStringDynamicMap(data['aiAnalysisData']),
+      aiAnalysisByLanguage: _readAnalysisByLanguage(
+        data['aiAnalysisByLanguage'],
+      ),
+      isPublished: data['isPublished'] as bool? ?? false,
+      visibility: _visibilityFromString(data['visibility'] as String?),
+      likesCount: data['likesCount'] as int? ?? 0,
+      commentsCount: data['commentsCount'] as int? ?? 0,
     );
   }
 
@@ -72,7 +100,24 @@ class Dream {
       'audioPaths': audioPaths,
       'transcription': transcription,
       'aiSummary': aiSummary,
+      'aiAnalysis': aiAnalysis,
+      'aiAnalysisByLanguage': aiAnalysisByLanguage,
+      'isPublished': isPublished,
+      'visibility': visibility.name,
+      'likesCount': likesCount,
+      'commentsCount': commentsCount,
     };
+  }
+
+  static DreamVisibility _visibilityFromString(String? value) {
+    switch (value) {
+      case 'public':
+        return DreamVisibility.public;
+      case 'followers':
+        return DreamVisibility.followers;
+      default:
+        return DreamVisibility.private;
+    }
   }
 
   /// Reads audioPaths from Firestore, falling back to legacy single audioPath.
@@ -86,6 +131,26 @@ class Dream {
       return [legacy];
     }
     return const [];
+  }
+
+  static Map<String, dynamic>? _readStringDynamicMap(dynamic raw) {
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return null;
+  }
+
+  static Map<String, dynamic>? _readAnalysisByLanguage(dynamic raw) {
+    if (raw is! Map) return null;
+
+    final mapped = <String, dynamic>{};
+    raw.forEach((key, value) {
+      if (value is Map) {
+        mapped[key.toString()] = Map<String, dynamic>.from(value);
+      }
+    });
+
+    return mapped.isEmpty ? null : mapped;
   }
 
   Dream copyWith({
@@ -103,6 +168,12 @@ class Dream {
     List<String>? audioPaths,
     String? transcription,
     String? aiSummary,
+    Map<String, dynamic>? aiAnalysis,
+    Map<String, dynamic>? aiAnalysisByLanguage,
+    bool? isPublished,
+    DreamVisibility? visibility,
+    int? likesCount,
+    int? commentsCount,
   }) {
     return Dream(
       id: id ?? this.id,
@@ -119,6 +190,12 @@ class Dream {
       audioPaths: audioPaths ?? this.audioPaths,
       transcription: transcription ?? this.transcription,
       aiSummary: aiSummary ?? this.aiSummary,
+      aiAnalysis: aiAnalysis ?? this.aiAnalysis,
+      aiAnalysisByLanguage: aiAnalysisByLanguage ?? this.aiAnalysisByLanguage,
+      isPublished: isPublished ?? this.isPublished,
+      visibility: visibility ?? this.visibility,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
     );
   }
 

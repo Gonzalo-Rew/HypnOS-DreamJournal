@@ -1,17 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:hypnos_dreamjournal/core/config/app_settings.dart';
-import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
-import 'package:hypnos_dreamjournal/app/app_routes.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
+import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/models/user_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/auth_repository.dart';
+import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
-import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
+import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_detail_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/follow_users_list_screen.dart';
+import 'package:hypnos_dreamjournal/features/settings/presentation/edit_profile_screen.dart';
+import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/follow_requests_screen.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
-import 'package:hypnos_dreamjournal/shared/utils/validators_formatters.dart';
-import 'package:hypnos_dreamjournal/shared/widgets/language_picker_button.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/glass_card.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/hypnos_app_bar.dart';
+import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,407 +27,655 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final AuthRepository _authRepository = AuthRepositoryImpl();
-
-  final _formKey = GlobalKey<FormState>();
-  final _displayNameController = TextEditingController();
+  final AuthRepository _authRepo = AuthRepositoryImpl();
+  final SocialRepository _social = SocialRepositoryImpl();
 
   bool _isLoading = true;
-  bool _isSaving = false;
-  bool _isLoggingOut = false;
-  String? _errorMessage;
-
   User? _currentUser;
-  bool _notificationsEnabled = false;
-  TimeOfDay _notificationTime = const TimeOfDay(hour: 8, minute: 0);
-
-  // Sprint 3: Gemini API key
-  final _geminiApiKeyController = TextEditingController();
-  bool _obscureGeminiKey = true;
-  bool _isSavingGeminiKey = false;
-
-  // Sprint 4: AI toggle
-  bool _aiEnabled = true;
-  bool _isLoadingAiEnabled = true;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
-    _loadGeminiKey();
-    _loadAiEnabled();
-  }
-
-  @override
-  void dispose() {
-    _displayNameController.dispose();
-    _geminiApiKeyController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadGeminiKey() async {
-    final key = await AppSettings.instance.getGeminiApiKey();
-    if (mounted && key != null) {
-      _geminiApiKeyController.text = key;
-    }
-  }
-
-  Future<void> _loadAiEnabled() async {
-    final enabled = await AppSettings.instance.getAiEnabled();
-    if (mounted) {
-      setState(() {
-        _aiEnabled = enabled;
-        _isLoadingAiEnabled = false;
-      });
-    }
-  }
-
-  Future<void> _saveGeminiKey() async {
-    final key = _geminiApiKeyController.text.trim();
-    setState(() => _isSavingGeminiKey = true);
-    if (key.isEmpty) {
-      await AppSettings.instance.clearGeminiApiKey();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).profileGeminiApiKeyCleared),
-          ),
-        );
-      }
-    } else {
-      await AppSettings.instance.setGeminiApiKey(key);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).profileGeminiApiKeySaved),
-          ),
-        );
-      }
-    }
-    setState(() => _isSavingGeminiKey = false);
   }
 
   Future<void> _loadProfile() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final result = await _authRepository.getCurrentUser();
-
-    if (!mounted) {
-      return;
-    }
-
-    if (result is Failure<User>) {
-      final l = AppLocalizations.of(context);
-      // Fallback: use Firebase Auth data directly (Firestore doc may not exist yet)
+    setState(() => _isLoading = true);
+    final result = await _authRepo.getCurrentUser();
+    if (!mounted) return;
+    if (result is Success<User>) {
+      setState(() {
+        _currentUser = result.value;
+        _isLoading = false;
+      });
+    } else {
       final authUser = FirebaseService.getCurrentUser();
       if (authUser != null) {
-        final email = authUser.email ?? '';
-        final displayName = authUser.displayName?.isNotEmpty == true
-            ? authUser.displayName!
-            : (email.isNotEmpty ? email.split('@').first : '');
-        final fallback = User(
-          id: authUser.uid,
-          email: email,
-          displayName: displayName,
-          createdAt: DateTime.now(),
-          aiEnabled: true,
-          timezone: 'UTC',
-          notificationsEnabled: false,
-          notificationTime: '08:00',
-        );
         setState(() {
-          _currentUser = fallback;
-          _displayNameController.text = fallback.displayName;
+          _currentUser = User(
+            id: authUser.uid,
+            email: authUser.email ?? '',
+            displayName:
+                authUser.displayName ?? authUser.email?.split('@').first ?? '',
+            createdAt: DateTime.now(),
+            aiEnabled: true,
+            timezone: 'UTC',
+            notificationsEnabled: false,
+            notificationTime: '08:00',
+          );
           _isLoading = false;
-          _errorMessage = l.profileIncomplete;
         });
       } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = l.profileLoadError;
-        });
+        setState(() => _isLoading = false);
       }
-      return;
-    }
-
-    final user = (result as Success<User>).value;
-    final parts = user.notificationTime.split(':');
-    final hour = int.tryParse(parts.first) ?? 8;
-    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-
-    setState(() {
-      _currentUser = user;
-      _displayNameController.text = user.displayName;
-      _notificationsEnabled = user.notificationsEnabled;
-      _notificationTime = TimeOfDay(hour: hour, minute: minute);
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _pickNotificationTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _notificationTime,
-    );
-
-    if (picked != null) {
-      setState(() {
-        _notificationTime = picked;
-      });
     }
   }
 
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final user = _currentUser;
-    if (user == null) {
-      return;
-    }
-
-    final l = AppLocalizations.of(context);
-
-    setState(() {
-      _isSaving = true;
-      _errorMessage = null;
-    });
-
-    final updateAuthResult = await _authRepository.updateUserProfile(
-      displayName: _displayNameController.text.trim(),
-    );
-
-    if (updateAuthResult is Failure<void>) {
-      final ex = updateAuthResult.exception;
-      setState(() {
-        _isSaving = false;
-        _errorMessage = ex is AuthException ? ex.message : l.profileSaveError;
-      });
-      return;
-    }
-
-    try {
-      final hh = _notificationTime.hour.toString().padLeft(2, '0');
-      final mm = _notificationTime.minute.toString().padLeft(2, '0');
-
-      await FirebaseService.firestore.collection('users').doc(user.id).set({
-        'displayName': _displayNameController.text.trim(),
-        'email': user.email,
-        'createdAt': user.createdAt,
-        'aiEnabled': user.aiEnabled,
-        'timezone': user.timezone,
-        'photoUrl': user.photoUrl,
-        'notificationsEnabled': _notificationsEnabled,
-        'notificationTime': '$hh:$mm',
-      }, SetOptions(merge: true));
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isSaving = false;
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l.profileSaveSuccess)));
-    } on FirebaseException catch (e) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isSaving = false;
-        _errorMessage = l.profileFirestoreError(e.message ?? '');
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isSaving = false;
-        _errorMessage = l.profileSaveError;
-      });
-    }
+  void _openSettings() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const SettingsScreen()))
+        .then((_) => _loadProfile());
   }
 
-  Future<void> _logout() async {
-    setState(() {
-      _isLoggingOut = true;
-      _errorMessage = null;
-    });
+  void _openEditProfile() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const EditProfileScreen()))
+        .then((_) => _loadProfile());
+  }
 
-    final result = await _authRepository.signOut();
-
-    if (!mounted) {
-      return;
-    }
-
-    if (result is Failure<void>) {
-      final l = AppLocalizations.of(context);
-      setState(() {
-        _isLoggingOut = false;
-        _errorMessage = l.profileLogoutError;
-      });
-      return;
-    }
-
+  void _openDreamDetail(Dream dream) {
     Navigator.of(
       context,
-    ).pushNamedAndRemoveUntil(AppRoutes.auth, (route) => false);
+    ).push(MaterialPageRoute(builder: (_) => DreamDetailScreen(dream: dream)));
+  }
+
+  void _openComments(String dreamId, String dreamTitle) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            CommentsScreen(dreamId: dreamId, dreamTitle: dreamTitle),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: AppColors.bgPrimary,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.accentPrimary),
+        ),
+      );
     }
 
+    final user = _currentUser;
+    final uid = user?.id ?? FirebaseService.getCurrentUserId() ?? '';
+    final publishedDreamsQuery = FirebaseService.firestore
+        .collection('users')
+        .doc(uid)
+        .collection('dreams')
+        .orderBy('updatedAt', descending: true);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l.profileTitle),
-        actions: [const LanguagePickerButton()],
-      ),
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.screenPadding),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Text(l.profileEmail(_currentUser?.email ?? '-')),
-                  ),
+        child: Column(
+          children: [
+            HypnosAppBar(
+              onSettingsTap: _openSettings,
+              extraActions: [
+                StreamBuilder<int>(
+                  stream: _social.pendingFollowRequestCount(uid),
+                  builder: (context, snap) {
+                    final count = snap.data ?? 0;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.people_outlined,
+                            color: AppColors.textPrimary,
+                            size: 22,
+                          ),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const FollowRequestsScreen(),
+                            ),
+                          ),
+                        ),
+                        if (count > 0)
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Container(
+                              width: 16,
+                              height: 16,
+                              decoration: const BoxDecoration(
+                                color: AppColors.accentPrimary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  count > 9 ? '9+' : '$count',
+                                  style: const TextStyle(
+                                    color: AppColors.bgPrimary,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: _displayNameController,
-                  decoration: InputDecoration(labelText: l.fieldDisplayName),
-                  validator: (v) => Validators.validateDisplayName(v, l),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Card(
-                  child: SwitchListTile(
-                    value: _notificationsEnabled,
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _notificationsEnabled = value;
-                            });
-                          },
-                    title: Text(l.profileNotificationsEnabled),
-                  ),
-                ),
-                Card(
-                  child: SwitchListTile(
-                    value: _aiEnabled,
-                    onChanged: _isLoadingAiEnabled
-                        ? null
-                        : (value) async {
-                            setState(() => _aiEnabled = value);
-                            await AppSettings.instance.setAiEnabled(value);
-                          },
-                    title: Text(l.profileAiEnabled),
-                    subtitle: Text(
-                      l.profileAiEnabledHint,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: Colors.grey),
-                    ),
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    title: Text(l.profileNotificationTime),
-                    subtitle: Text(_notificationTime.format(context)),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: _isSaving ? null : _pickNotificationTime,
-                  ),
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                FilledButton(
-                  onPressed: _isSaving ? null : _saveProfile,
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l.profileSaveButton),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                OutlinedButton(
-                  onPressed: _isLoggingOut ? null : _logout,
-                  child: _isLoggingOut
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l.profileLogoutButton),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                // ── Sprint 3: Gemini API Key ──────────────────────────────
-                Text(
-                  l.profileGeminiApiKey,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                TextFormField(
-                  controller: _geminiApiKeyController,
-                  obscureText: _obscureGeminiKey,
-                  decoration: InputDecoration(
-                    labelText: l.profileGeminiApiKey,
-                    hintText: l.profileGeminiApiKeyHint,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureGeminiKey
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscureGeminiKey = !_obscureGeminiKey);
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                OutlinedButton(
-                  onPressed: _isSavingGeminiKey ? null : _saveGeminiKey,
-                  child: _isSavingGeminiKey
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l.profileSaveButton),
-                ),
-                // ─────────────────────────────────────────────────────────
               ],
             ),
+            Expanded(
+              child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: FirebaseService.firestore
+                    .collection('users')
+                    .doc(uid)
+                    .snapshots(),
+                builder: (context, userSnap) {
+                  User? liveUser = user;
+                  if (userSnap.hasData && userSnap.data!.exists) {
+                    liveUser = User.fromFirestore(
+                      userSnap.data!.data()!,
+                      userSnap.data!.id,
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    color: AppColors.accentPrimary,
+                    backgroundColor: const Color(0xFF1E2230),
+                    onRefresh: _loadProfile,
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: _ProfileHeader(
+                            user: liveUser,
+                            l: l,
+                            onEditTap: _openEditProfile,
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                              AppSpacing.sm,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_stories_outlined,
+                                  color: AppColors.accentPrimary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Text(
+                                  l.profilePublishedDreams,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        StreamBuilder<
+                          List<QueryDocumentSnapshot<Map<String, dynamic>>>
+                        >(
+                          stream: publishedDreamsQuery.snapshots().map(
+                            (snap) => snap.docs
+                                .where(
+                                  (doc) =>
+                                      (doc.data()['isPublished'] as bool?) ??
+                                      false,
+                                )
+                                .toList(),
+                          ),
+                          builder: (context, dreamSnap) {
+                            if (dreamSnap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const SliverToBoxAdapter(
+                                child: Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(AppSpacing.lg),
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.accentPrimary,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final docs = dreamSnap.data ?? [];
+
+                            if (docs.isEmpty) {
+                              return SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.xl),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.bedtime_outlined,
+                                        color: AppColors.textSecondary
+                                            .withValues(alpha: 0.4),
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                      Text(
+                                        l.profileNoPublishedDreams,
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 13,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return SliverList(
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                i,
+                              ) {
+                                final data = docs[i].data();
+                                final dreamId = docs[i].id;
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.xs,
+                                  ),
+                                  child: _PublicDreamCard(
+                                    dreamId: dreamId,
+                                    data: data,
+                                    currentUserId: uid,
+                                    social: _social,
+                                    onCommentsTap: () => _openComments(
+                                      dreamId,
+                                      data['title'] as String? ?? '',
+                                    ),
+                                    onTap: () {
+                                      final dream = Dream.fromFirestore(
+                                        data,
+                                        dreamId,
+                                        uid,
+                                      );
+                                      _openDreamDetail(dream);
+                                    },
+                                  ),
+                                );
+                              }, childCount: docs.length),
+                            );
+                          },
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AppSpacing.xl),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Profile header ───────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.user,
+    required this.l,
+    required this.onEditTap,
+  });
+
+  final User? user;
+  final AppLocalizations l;
+  final VoidCallback onEditTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = user;
+    final initials =
+        (u?.displayName.isNotEmpty == true ? u!.displayName[0] : '?')
+            .toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 44,
+            backgroundColor: AppColors.accentSecondary.withValues(alpha: 0.3),
+            backgroundImage: u?.photoUrl != null
+                ? NetworkImage(u!.photoUrl!)
+                : null,
+            child: u?.photoUrl == null
+                ? Text(
+                    initials,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            u?.displayName ?? '—',
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (u?.username != null || u?.email != null)
+            Text(
+              u?.username != null
+                  ? '@${u!.username}'
+                  : u!.email.split('@').first,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _LiveCountStat(
+                onTap: u?.id == null
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FollowUsersListScreen(
+                            userId: u!.id,
+                            ownerName: u.displayName,
+                            type: FollowUsersListType.followers,
+                          ),
+                        ),
+                      ),
+                query: FirebaseService.firestore
+                    .collection('follows')
+                    .where('followingId', isEqualTo: u?.id ?? ''),
+                fallbackCount: u?.followersCount ?? 0,
+                label: l.profileFollowers,
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              _LiveCountStat(
+                onTap: u?.id == null
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FollowUsersListScreen(
+                            userId: u!.id,
+                            ownerName: u.displayName,
+                            type: FollowUsersListType.following,
+                          ),
+                        ),
+                      ),
+                query: FirebaseService.firestore
+                    .collection('follows')
+                    .where('followerId', isEqualTo: u?.id ?? ''),
+                fallbackCount: u?.followingCount ?? 0,
+                label: l.profileFollowing,
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              _LiveCountStat(
+                query: FirebaseService.firestore
+                    .collection('users')
+                    .doc(u?.id ?? '')
+                    .collection('dreams')
+                    .where('isPublished', isEqualTo: true),
+                fallbackCount: 0,
+                label: l.profilePublishedDreams,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: onEditTap,
+            icon: const Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: AppColors.accentPrimary,
+            ),
+            label: Text(
+              l.settingsEditProfile,
+              style: TextStyle(color: AppColors.accentPrimary, fontSize: 13),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.accentPrimary, width: 1),
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.count, required this.label});
+  final int count;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _LiveCountStat extends StatelessWidget {
+  const _LiveCountStat({
+    this.onTap,
+    required this.query,
+    required this.fallbackCount,
+    required this.label,
+  });
+
+  final VoidCallback? onTap;
+  final Query<Map<String, dynamic>> query;
+  final int fallbackCount;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: query.snapshots(),
+      builder: (_, snap) {
+        final count = snap.data?.docs.length ?? fallbackCount;
+        return GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: _StatChip(count: count, label: label),
+        );
+      },
+    );
+  }
+}
+
+// ─── Public dream card ────────────────────────────────────────────────────────
+
+class _PublicDreamCard extends StatelessWidget {
+  const _PublicDreamCard({
+    required this.dreamId,
+    required this.data,
+    required this.currentUserId,
+    required this.social,
+    required this.onCommentsTap,
+    required this.onTap,
+  });
+
+  final String dreamId;
+  final Map<String, dynamic> data;
+  final String currentUserId;
+  final SocialRepository social;
+  final VoidCallback onCommentsTap;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = data['title'] as String? ?? '';
+    final text = data['text'] as String? ?? '';
+    final likesCount = data['likesCount'] as int? ?? 0;
+    final commentsCount = data['commentsCount'] as int? ?? 0;
+    final publishedAt = (data['publishedAt'] as dynamic)?.toDate() as DateTime?;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (publishedAt != null)
+                  Text(
+                    DateFormat('d MMM').format(publishedAt),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            if (text.isNotEmpty)
+              Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                StreamBuilder<bool>(
+                  stream: social.isDreamLiked(
+                    userId: currentUserId,
+                    dreamId: dreamId,
+                  ),
+                  builder: (context, snap) {
+                    final liked = snap.data ?? false;
+                    return GestureDetector(
+                      onTap: () async {
+                        if (liked) {
+                          await social.unlikeDream(
+                            userId: currentUserId,
+                            dreamId: dreamId,
+                          );
+                        } else {
+                          await social.likeDream(
+                            userId: currentUserId,
+                            dreamId: dreamId,
+                          );
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            liked ? Icons.favorite : Icons.favorite_border,
+                            color: liked
+                                ? AppColors.error
+                                : AppColors.textSecondary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            likesCount.toString(),
+                            style: TextStyle(
+                              color: liked
+                                  ? AppColors.error
+                                  : AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: AppSpacing.md),
+                GestureDetector(
+                  onTap: onCommentsTap,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline,
+                        color: AppColors.textSecondary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        commentsCount.toString(),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

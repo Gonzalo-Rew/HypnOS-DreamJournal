@@ -61,6 +61,21 @@ Todos los agentes deben leerlo antes de proponer cambios y actualizarlo cuando e
 - Checklist QA/Release: .github/docs/checklists/qa-release-checklist.md
 - Contexto de metricas/insights: .github/agents/contexts/specialized/data-insights-metric-context.md
 
+## Versionado y ramas
+- Convencion: feat/mvp-vX → merge a main → tag semantico vX.Y.Z → release APK
+- MAJOR: rediseno o ruptura de compatibilidad | MINOR: sprint/feature completa | PATCH: bug fix
+- La version en pubspec.yaml se actualiza en la rama antes del merge.
+- El tag se crea sobre el commit de merge en main.
+- Historial completo: CHANGELOG.md
+
+### Versiones activas
+- v1.0.0 (main, tag v1.0.0): MVP completo — auth, CRUD, audio, IA Gemini, dashboard
+- v1.1.0+2 (feat/mvp-v2): en desarrollo — cambios pendientes de definir
+
+## Distribucion de APK
+- Plataforma primaria: Firebase App Distribution (ya integrado en el stack)
+- Alternativa secundaria: GitHub Releases (APK adjunta al tag de version)
+
 ## Ultima actualizacion
-- Fecha: 2026-04-29
-- Nota: Contexto de producto sintetizado de forma extrema para consumo operativo de agentes.
+- Fecha: 2026-05-16
+- Nota: Sistema de versionado semantico vinculado a ramas establecido. Tag v1.0.0 publicado.

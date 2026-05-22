@@ -6,14 +6,11 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 /// Widget for playing back a dream audio recording.
 /// Supports both a local file path and a remote URL.
 class AudioPlayerWidget extends StatefulWidget {
-  const AudioPlayerWidget({
-    super.key,
-    this.localPath,
-    this.remoteUrl,
-  }) : assert(
-          localPath != null || remoteUrl != null,
-          'Either localPath or remoteUrl must be provided',
-        );
+  const AudioPlayerWidget({super.key, this.localPath, this.remoteUrl})
+    : assert(
+        localPath != null || remoteUrl != null,
+        'Either localPath or remoteUrl must be provided',
+      );
 
   /// Path to a local audio file.
   final String? localPath;
@@ -131,14 +128,18 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         children: [
           Row(
             children: [
-              const Icon(Icons.headphones, color: AppColors.accentPrimary, size: 18),
+              const Icon(
+                Icons.headphones,
+                color: AppColors.accentPrimary,
+                size: 18,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 'Grabación de voz',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                    ),
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -157,9 +158,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           else if (_errorMessage != null)
             Text(
               _errorMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             )
           else if (_isInitialized)
             _buildPlayer()
@@ -195,8 +196,12 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
               SliderTheme(
                 data: SliderThemeData(
                   trackHeight: 3,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 6,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 12,
+                  ),
                   activeTrackColor: AppColors.accentPrimary,
                   inactiveTrackColor: AppColors.borderSubtle,
                   thumbColor: AppColors.accentPrimary,

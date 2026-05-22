@@ -44,5 +44,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Secrets - never commit API keys
+.dart_defines
+
 
 # F9:65:4E:F1:8F:DA:A5:A8:BA:C9:E3:86:D4:70:05:FA:90:4D:09:29

@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "hypnos_dreamjournal (debug)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define-from-file=.dart_defines"]
+    },
+    {
+      "name": "hypnos_dreamjournal (profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "args": ["--dart-define-from-file=.dart_defines"]
+    },
+    {
+      "name": "hypnos_dreamjournal (release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "args": ["--dart-define-from-file=.dart_defines"]
+    }
+  ]
+}

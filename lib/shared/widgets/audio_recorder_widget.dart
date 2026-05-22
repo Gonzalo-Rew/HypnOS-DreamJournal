@@ -6,6 +6,7 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/services/audio_service.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
 
 /// Callback signature when a recording is completed.
 typedef OnRecordingComplete = void Function(String filePath);
@@ -17,6 +18,8 @@ class AudioRecorderWidget extends StatefulWidget {
     required this.onRecordingComplete,
     this.onRecordingDeleted,
     this.existingRecordingPath,
+    this.autoStartOnMount = false,
+    this.directActionMode = false,
   });
 
   /// Called when a new recording is successfully completed.
@@ -27,6 +30,12 @@ class AudioRecorderWidget extends StatefulWidget {
 
   /// If a recording already exists (edit mode), its local path.
   final String? existingRecordingPath;
+
+  /// Starts recording automatically when the widget is mounted.
+  final bool autoStartOnMount;
+
+  /// Shows direct Save/Cancel actions immediately (used by dream form UX).
+  final bool directActionMode;
 
   @override
   State<AudioRecorderWidget> createState() => _AudioRecorderWidgetState();
@@ -39,11 +48,29 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
   Duration _elapsed = Duration.zero;
   Timer? _timer;
   String? _errorMessage;
-  bool _isLoading = false;
+  bool _isStarting = false;
+  bool _isStopping = false;
+  bool _hasAutoStarted = false;
+
+  bool get _isBusy => _isStarting || _isStopping;
 
   @override
   void initState() {
     super.initState();
+    if (widget.autoStartOnMount) {
+      _isStarting = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoStartIfNeeded();
+      });
+    }
+  }
+
+  Future<void> _autoStartIfNeeded() async {
+    if (_hasAutoStarted || !mounted || _isRecording) {
+      return;
+    }
+    _hasAutoStarted = true;
+    await _startRecording();
   }
 
   @override
@@ -77,7 +104,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
 
   Future<void> _startRecording() async {
     setState(() {
-      _isLoading = true;
+      _isStarting = true;
       _errorMessage = null;
     });
 
@@ -89,13 +116,13 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
       if (result is Success<String>) {
         setState(() {
           _isRecording = true;
-          _isLoading = false;
+          _isStarting = false;
         });
         _startTimer();
       } else {
         final failure = result as Failure<String>;
         setState(() {
-          _isLoading = false;
+          _isStarting = false;
           _errorMessage = failure.exception is PermissionException
               ? 'Permiso de micrófono denegado. Actívalo en Ajustes.'
               : 'Error al iniciar la grabación.';
@@ -104,15 +131,15 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error inesperado: $e';
+        _isStarting = false;
+        _errorMessage = AppError.handle(e, 'AudioRecorder.start');
       });
     }
   }
 
   Future<void> _stopRecording() async {
     // Disable further stop calls while processing.
-    setState(() => _isLoading = true);
+    setState(() => _isStopping = true);
     _stopTimer();
 
     try {
@@ -125,24 +152,42 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
         if (mounted) {
           setState(() {
             _isRecording = false;
-            _isLoading = false;
+            _isStopping = false;
             _elapsed = Duration.zero;
           });
         }
       } else {
         // Stop failed — let user try again.
         setState(() {
-          _isLoading = false;
+          _isStopping = false;
           _errorMessage = 'No se pudo detener la grabación.';
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error al detener: $e';
+        _isStopping = false;
+        _errorMessage = AppError.handle(e, 'AudioRecorder.stop');
       });
     }
+  }
+
+  Future<void> _cancelRecording() async {
+    setState(() {
+      _isStopping = true;
+      _errorMessage = null;
+    });
+    _stopTimer();
+
+    await _audioService.cancelRecording();
+    if (!mounted) return;
+
+    setState(() {
+      _isRecording = false;
+      _isStopping = false;
+      _elapsed = Duration.zero;
+    });
+    widget.onRecordingDeleted?.call();
   }
 
   @override
@@ -155,9 +200,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Text(
               _errorMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             ),
           ),
         if (_isRecording) _buildRecordingActive(),
@@ -167,26 +212,119 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
   }
 
   Widget _buildRecordingIdle() {
-    return Center(
-      child: _isLoading
-          ? const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.accentPrimary,
-              ),
-            )
-          : ElevatedButton.icon(
-              onPressed: _startRecording,
-              icon: const Icon(Icons.mic_none),
-              label: const Text('Iniciar grabación'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentPrimary.withValues(alpha: 0.15),
-                foregroundColor: AppColors.accentPrimary,
-                side: const BorderSide(color: AppColors.accentPrimary),
+    if (widget.directActionMode) {
+      return _buildDirectActionIdle();
+    }
+
+    if (_isStarting && widget.autoStartOnMount) {
+      return const SizedBox(
+        height: 56,
+        child: Center(
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.accentPrimary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _isBusy ? null : _startRecording,
+            icon: _isStarting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.mic_rounded),
+            label: Text(_isStarting ? 'Iniciando...' : 'Iniciar grabación'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accentPrimary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(46),
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDirectActionIdle() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _PulsingDot(),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              _isStarting ? 'Iniciando grabación...' : 'Grabando · 00:00',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 190,
+              child: FilledButton.icon(
+                onPressed: (_isStarting || _isStopping) ? null : _stopRecording,
+                icon: (_isStarting || _isStopping)
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.stop_rounded),
+                label: Text(
+                  _isStarting
+                      ? 'Iniciando...'
+                      : _isStopping
+                      ? 'Finalizando...'
+                      : 'Guardar',
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: const StadiumBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: _isStopping ? null : _cancelRecording,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.borderSubtle),
+                minimumSize: const Size(110, 46),
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -201,9 +339,9 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
             Text(
               'Grabando · ${_formatDuration(_elapsed)}',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -211,41 +349,38 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : _stopRecording,
-              icon: _isLoading
+            SizedBox(
+              width: 190,
+              child: FilledButton.icon(
+                onPressed: _isStopping ? null : _stopRecording,
+                icon: _isStopping
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.error,
+                        color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.stop_circle_outlined),
-              label: const Text('Detener'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error.withValues(alpha: 0.2),
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
+                  : const Icon(Icons.stop_rounded),
+                label: Text(_isStopping ? 'Finalizando...' : 'Guardar'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: const StadiumBorder(),
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            TextButton(
-              onPressed: _isLoading
-                  ? null
-                  : () async {
-                      _stopTimer();
-                      await _audioService.cancelRecording();
-                      if (!mounted) return;
-                      setState(() {
-                        _isRecording = false;
-                        _isLoading = false;
-                        _elapsed = Duration.zero;
-                      });
-                      widget.onRecordingDeleted?.call();
-                    },
-              style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+            OutlinedButton(
+              onPressed: _isStopping ? null : _cancelRecording,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.borderSubtle),
+                minimumSize: const Size(110, 46),
+                shape: const StadiumBorder(),
+              ),
               child: const Text('Cancelar'),
             ),
           ],

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.11.5
@@ -43,15 +43,19 @@ dependencies:
   cloud_firestore: ^4.15.4
   # Firebase Storage (almacenamiento de archivos de audio)
   firebase_storage: ^11.6.5
+  # OAuth social login
+  google_sign_in: ^6.2.0
+  sign_in_with_apple: ^6.0.0
   # Biometría
   local_auth: ^2.2.0 # Autenticación biométrica
+  flutter_secure_storage: ^9.2.4 # Almacenamiento seguro de credenciales biométricas
   # Audio
   record: ^6.0.0 # Grabar audio
   just_audio: ^0.9.38 # Reproducir audio 
   path_provider: ^2.1.3 # Para guardar archivos en el sistema de archivos del dispositivo
   # Speech-to-Text se activa en Fase 3 (Multimedia e IA)
-  # Gemini API
-  google_generative_ai: ^0.3.1 # SDK oficial de Google para Gemini
+  # Gemini AI via Cloud Functions (key stored server-side in Secret Manager)
+  cloud_functions: ^4.7.6
   # Gráficos
   fl_chart: ^0.67.0 # Para los gráficos de estadísticas
   # Opcional: Para cargar imágenes de red (ej: de Pollinations.ai)
@@ -72,6 +76,12 @@ dependencies:
   # Media
   image_picker: ^1.1.2 # Pick images from gallery or camera (profile photo)
 
+  # Sharing
+  share_plus: ^10.0.0 # Native OS share sheet (WhatsApp, etc.)
+
+  # Push Notifications (FCM)
+  firebase_messaging: ^14.9.4
+
   # Notifications
   flutter_local_notifications: ^17.2.2 # Local notifications (morning reminders)
 
@@ -80,6 +90,9 @@ dependencies:
 
   # Logging and debugging
   logger: ^2.1.0 # Better logging for development and debugging
+
+  # HTTP client (used for direct Cloud Function calls bypassing App Check interceptor)
+  http: ^1.2.1
 
   # Additional utilities
   uuid: ^4.0.0 # UUID generation for IDs
@@ -99,6 +112,34 @@ dev_dependencies:
   # Code generation for Riverpod annotations
   riverpod_generator: ^2.4.0
   build_runner: ^2.4.9
+
+  # Test mocking
+  mocktail: ^1.0.4
+
+  # Launcher icon generation
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  adaptive_icon_foreground: assets/icons/morpheus_orb_launcher.png
+  adaptive_icon_background: "#0E1020"
+  adaptive_icon_foreground_inset: 0
+  ios: true
+  remove_alpha_ios: true
+  image_path: assets/icons/morpheus_orb_launcher.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
+    background_color: "#0E1020"
+    theme_color: "#0E1020"
+  windows:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -7,31 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1021662923284:android:2de9ec1bbf6b22cb007501",
-        "android_client_info": {
-          "package_name": "com.example.hypnos_dream_journal"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBYS3rrrT2AnWx8hKzUYVnBCzvEXgPJ8Ok"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:1021662923284:android:339712d76670fc2a007501",
         "android_client_info": {
           "package_name": "com.example.hypnos_dreamjournal"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1021662923284-ljrka9nau9ss8pl1vsqlp83k6a32lc8h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.hypnos_dreamjournal",
+            "certificate_hash": "f9654ef18fdaa5a8bac9e386d47005fa904d0929"
+          }
+        },
+        {
+          "client_id": "1021662923284-2hh622s4c42vm09dlhrvkg60q2qpcegb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBYS3rrrT2AnWx8hKzUYVnBCzvEXgPJ8Ok"
@@ -39,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1021662923284-2hh622s4c42vm09dlhrvkg60q2qpcegb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1021662923284-tvm52r3di2im3a6n115n9bmnlu4srdbc.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.hypnosDreamjournal"
+              }
+            }
+          ]
         }
       }
     }
