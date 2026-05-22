@@ -55,10 +55,16 @@ class Validators {
     if (value == null || value.isEmpty) {
       return l.validationDisplayNameRequired;
     }
-    if (value.length < 2) {
+    final normalized = value.trim();
+    // Allow Unicode letters/marks, numbers, spaces and common name separators.
+    final allowedChars = RegExp(r"^[\p{L}\p{M}\p{N} ._'-]+$", unicode: true);
+    if (!allowedChars.hasMatch(normalized)) {
+      return l.validationDisplayNameInvalidChars;
+    }
+    if (normalized.length < 2) {
       return l.validationDisplayNameTooShort;
     }
-    if (value.length > 50) {
+    if (normalized.length > 50) {
       return l.validationDisplayNameTooLong;
     }
     return null;

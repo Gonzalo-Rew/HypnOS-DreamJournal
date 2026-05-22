@@ -5,7 +5,9 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/models/user_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
-import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/follow_users_list_screen.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/audio_player_widget.dart';
+import 'package:intl/intl.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({super.key, required this.userId});
@@ -30,25 +32,31 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final myId = _currentUserId;
     if (myId == null) return;
     setState(() => _isFollowLoading = true);
-    switch (followState) {
-      case 'following':
-        await _social.unfollow(
-          currentUserId: myId,
-          targetUserId: widget.userId,
-        );
-      case 'pending':
-        await _social.cancelFollowRequest(
-          currentUserId: myId,
-          targetUserId: widget.userId,
-        );
-      case 'none':
-      default:
-        await _social.sendFollowRequest(
-          currentUserId: myId,
-          targetUserId: widget.userId,
-        );
+    try {
+      switch (followState) {
+        case 'following':
+          await _social.unfollow(
+            currentUserId: myId,
+            targetUserId: widget.userId,
+          );
+          break;
+        case 'pending':
+          await _social.cancelFollowRequest(
+            currentUserId: myId,
+            targetUserId: widget.userId,
+          );
+          break;
+        case 'none':
+        default:
+          await _social.sendFollowRequest(
+            currentUserId: myId,
+            targetUserId: widget.userId,
+          );
+          break;
+      }
+    } finally {
+      if (mounted) setState(() => _isFollowLoading = false);
     }
-    if (mounted) setState(() => _isFollowLoading = false);
   }
 
   @override
@@ -177,13 +185,45 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  _Stat(
-                                    count: profileUser.followersCount,
+                                  _LiveFollowStat(
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => FollowUsersListScreen(
+                                          userId: widget.userId,
+                                          ownerName: profileUser.displayName,
+                                          type: FollowUsersListType.followers,
+                                        ),
+                                      ),
+                                    ),
+                                    query: FirebaseService.firestore
+                                        .collection('follows')
+                                        .where(
+                                          'followingId',
+                                          isEqualTo: widget.userId,
+                                        ),
+                                    fallbackCount: profileUser.followersCount,
                                     label: 'seguidores',
                                   ),
                                   const SizedBox(width: AppSpacing.xl),
-                                  _Stat(
-                                    count: profileUser.followingCount,
+                                  _LiveFollowStat(
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => FollowUsersListScreen(
+                                          userId: widget.userId,
+                                          ownerName: profileUser.displayName,
+                                          type: FollowUsersListType.following,
+                                        ),
+                                      ),
+                                    ),
+                                    query: FirebaseService.firestore
+                                        .collection('follows')
+                                        .where(
+                                          'followerId',
+                                          isEqualTo: widget.userId,
+                                        ),
+                                    fallbackCount: profileUser.followingCount,
                                     label: 'siguiendo',
                                   ),
                                 ],
@@ -396,28 +436,49 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.count, required this.label});
-  final int count;
+class _LiveFollowStat extends StatelessWidget {
+  const _LiveFollowStat({
+    this.onTap,
+    required this.query,
+    required this.fallbackCount,
+    required this.label,
+  });
+
+  final VoidCallback? onTap;
+  final Query<Map<String, dynamic>> query;
+  final int fallbackCount;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? fallbackCount;
+        return GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            children: [
+              Text(
+                count.toString(),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -452,93 +513,97 @@ class _DreamsListView extends StatelessWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          separatorBuilder: (context, index) =>
+              const SizedBox(height: AppSpacing.sm),
           itemBuilder: (_, i) {
             final data = docs[i].data();
             final dreamId = docs[i].id;
             final title = data['title'] as String? ?? 'Sueño';
-            final preview = (data['content'] as String? ?? '').take(120);
-            final likesCount = data['likesCount'] as int? ?? 0;
-            final commentsCount = data['commentsCount'] as int? ?? 0;
+            final preview =
+                (data['text'] as String? ?? data['content'] as String? ?? '')
+                    .takeWithEllipsis(120);
+            final audioPaths = List<String>.from(
+              data['audioPaths'] as List? ?? const [],
+            );
+            final dreamDate =
+                (data['dreamDate'] as dynamic)?.toDate() as DateTime?;
 
-            return Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => _PublicDreamDetailScreen(
+                    dreamId: dreamId,
+                    title: title,
+                    description:
+                        data['text'] as String? ??
+                        data['content'] as String? ??
+                        '',
+                    dreamDate: dreamDate,
+                    audioPaths: audioPaths,
                   ),
-                  if (preview.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      preview,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                      title,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.favorite_outline,
-                        color: AppColors.textSecondary,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
+                    if (preview.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        '$likesCount',
+                        preview,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 12,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CommentsScreen(
-                              dreamId: dreamId,
-                              dreamTitle: title,
-                            ),
-                          ),
-                        ),
-                        child: Row(
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseService.firestore
+                          .collection('publicDreams')
+                          .doc(dreamId)
+                          .collection('likes')
+                          .snapshots(),
+                      builder: (context, likesSnap) {
+                        final likesCount = likesSnap.data?.docs.length ?? 0;
+                        return Row(
                           children: [
                             const Icon(
-                              Icons.chat_bubble_outline,
+                              Icons.favorite_outline,
                               color: AppColors.textSecondary,
                               size: 16,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '$commentsCount',
+                              '$likesCount',
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -549,5 +614,213 @@ class _DreamsListView extends StatelessWidget {
 }
 
 extension on String {
-  String take(int n) => length <= n ? this : substring(0, n);
+  String takeWithEllipsis(int n) =>
+      length <= n ? this : '${substring(0, n)}...';
+}
+
+class _PublicDreamDetailScreen extends StatelessWidget {
+  const _PublicDreamDetailScreen({
+    required this.dreamId,
+    required this.title,
+    required this.description,
+    required this.dreamDate,
+    required this.audioPaths,
+  });
+
+  final String dreamId;
+  final String title;
+  final String description;
+  final DateTime? dreamDate;
+  final List<String> audioPaths;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.lg,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (dreamDate != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateFormat('d MMM yyyy, HH:mm').format(dreamDate!),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceGlass,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Text(
+                description.isNotEmpty ? description : '-',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            if (audioPaths.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Audios',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              for (var i = 0; i < audioPaths.length; i++) ...[
+                const SizedBox(height: AppSpacing.xs),
+                if (audioPaths.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      'Audio ${i + 1}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                AudioPlayerWidget(remoteUrl: audioPaths[i]),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PublicLikeBar extends StatefulWidget {
+  const _PublicLikeBar({required this.dreamId});
+
+  final String dreamId;
+
+  @override
+  State<_PublicLikeBar> createState() => _PublicLikeBarState();
+}
+
+class _PublicLikeBarState extends State<_PublicLikeBar> {
+  final SocialRepository _social = SocialRepositoryImpl();
+  bool _isSaving = false;
+
+  Future<void> _toggleLike(bool isLiked) async {
+    final uid = FirebaseService.getCurrentUserId();
+    if (uid == null) return;
+
+    setState(() => _isSaving = true);
+    if (isLiked) {
+      await _social.unlikeDream(userId: uid, dreamId: widget.dreamId);
+    } else {
+      await _social.likeDream(userId: uid, dreamId: widget.dreamId);
+    }
+    if (mounted) setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseService.getCurrentUserId() ?? '';
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          if (uid.isNotEmpty)
+            StreamBuilder<bool>(
+              stream: _social.isDreamLiked(
+                userId: uid,
+                dreamId: widget.dreamId,
+              ),
+              builder: (_, snap) {
+                final isLiked = snap.data ?? false;
+                return GestureDetector(
+                  onTap: _isSaving ? null : () => _toggleLike(isLiked),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: AppColors.error,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_outline,
+                          color: isLiked
+                              ? AppColors.error
+                              : AppColors.textSecondary,
+                          size: 22,
+                        ),
+                );
+              },
+            ),
+          const SizedBox(width: 6),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseService.firestore
+                .collection('publicDreams')
+                .doc(widget.dreamId)
+                .collection('likes')
+                .snapshots(),
+            builder: (_, snap) {
+              final likes = snap.data?.docs.length ?? 0;
+              return Text(
+                '$likes',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

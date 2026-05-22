@@ -28,11 +28,64 @@ class DreamAnalysis {
   });
 
   factory DreamAnalysis.fromText(String rawText) {
-    // Parse the structured plain-text response from Gemini
-    String extract(String key) {
-      final pattern = RegExp('$key:\\s*(.+)', caseSensitive: false);
-      final match = pattern.firstMatch(rawText);
-      return match?.group(1)?.trim() ?? '';
+    String sanitize(String value) {
+      return value
+          .replaceAll('**', '')
+          .replaceAll(RegExp(r'^\[|\]$'), '')
+          .replaceAll(RegExp(r'^"|"$'), '')
+          .trim();
+    }
+
+    List<String> readList(dynamic value) {
+      if (value is List) {
+        return value
+            .map((item) => sanitize(item.toString()))
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    final trimmed = rawText.trim().replaceAll('**', '');
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map<String, dynamic>) {
+          return DreamAnalysis(
+            sentiment: sanitize(decoded['sentiment']?.toString() ?? ''),
+            category: sanitize(decoded['category']?.toString() ?? ''),
+            emotions: readList(decoded['emotions']),
+            characters: readList(decoded['characters']),
+            places: readList(decoded['places']),
+            themes: readList(decoded['themes']),
+            psychologicalNote: sanitize(
+              decoded['psychologicalNote']?.toString() ?? '',
+            ),
+            summary: sanitize(decoded['summary']?.toString() ?? ''),
+          );
+        }
+      } catch (_) {
+        // Fall through to the legacy text parser.
+      }
+    }
+
+    // Parse the structured plain-text response from Gemini.
+    // This parser is intentionally tolerant to formatting drift.
+    String extract(String key, {List<String> aliases = const []}) {
+      final allKeys = [key, ...aliases];
+      for (final candidate in allKeys) {
+        final escaped = RegExp.escape(candidate);
+        final pattern = RegExp(
+          '(?:^|\\n)\\s*$escaped\\s*:\\s*([\\s\\S]+?)(?=\\n\\s*[A-Z_ ]+\\s*:|\$)',
+          caseSensitive: false,
+        );
+        final match = pattern.firstMatch(rawText.replaceAll('**', ''));
+        final value = match?.group(1)?.trim() ?? '';
+        if (value.isNotEmpty) {
+          return sanitize(value);
+        }
+      }
+      return '';
     }
 
     List<String> extractList(String key) {
@@ -40,18 +93,9 @@ class DreamAnalysis {
       if (raw.isEmpty) return [];
       return raw
           .split(',')
-          .map((e) => e.trim())
+          .map((e) => sanitize(e))
           .where((e) => e.isNotEmpty)
           .toList();
-    }
-
-    String extractBlock(String key) {
-      final pattern = RegExp(
-        '$key:\\s*([\\s\\S]+?)(?=\\n[A-Z_]+:|\$)',
-        caseSensitive: false,
-      );
-      final match = pattern.firstMatch(rawText);
-      return match?.group(1)?.trim() ?? '';
     }
 
     return DreamAnalysis(
@@ -61,8 +105,11 @@ class DreamAnalysis {
       characters: extractList('CHARACTERS'),
       places: extractList('PLACES'),
       themes: extractList('THEMES'),
-      psychologicalNote: extractBlock('PSYCHOLOGICAL_NOTE'),
-      summary: extractBlock('SUMMARY'),
+      psychologicalNote: extract(
+        'PSYCHOLOGICAL_NOTE',
+        aliases: const ['PSYCHOLOGICAL NOTE'],
+      ),
+      summary: extract('SUMMARY'),
     );
   }
 
@@ -103,6 +150,7 @@ class GeminiService {
     required String text,
     int? moodScore,
     String? contextNotes,
+    String? language,
   }) async {
     if (text.trim().isEmpty) {
       return Failure(
@@ -117,6 +165,7 @@ class GeminiService {
         'text': text,
         'moodScore': moodScore,
         'contextNotes': contextNotes,
+        'language': language,
       });
 
       final rawText = response.data['analysisText'] as String?;

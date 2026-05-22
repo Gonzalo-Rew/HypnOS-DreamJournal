@@ -254,6 +254,12 @@ abstract class AppLocalizations {
   /// **'Display name must be less than 50 characters'**
   String get validationDisplayNameTooLong;
 
+  /// No description provided for @validationDisplayNameInvalidChars.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name contains unsupported characters'**
+  String get validationDisplayNameInvalidChars;
+
   /// No description provided for @validationDisplayNameTaken.
   ///
   /// In en, this message translates to:
@@ -347,13 +353,13 @@ abstract class AppLocalizations {
   /// No description provided for @dreamsListMoodLabel.
   ///
   /// In en, this message translates to:
-  /// **'Mood {score}'**
+  /// **'Intensity {score}'**
   String dreamsListMoodLabel(String score);
 
   /// No description provided for @dreamsListMoodNoScore.
   ///
   /// In en, this message translates to:
-  /// **'Mood -'**
+  /// **'Intensity -'**
   String get dreamsListMoodNoScore;
 
   /// No description provided for @dreamsListTooltipCreate.
@@ -395,7 +401,7 @@ abstract class AppLocalizations {
   /// No description provided for @dreamFormFieldMood.
   ///
   /// In en, this message translates to:
-  /// **'Mood score (1-5)'**
+  /// **'Emotional intensity (1-5)'**
   String get dreamFormFieldMood;
 
   /// No description provided for @dreamFormFieldContextNotes.
@@ -413,13 +419,13 @@ abstract class AppLocalizations {
   /// No description provided for @dreamFormValidationMoodRequired.
   ///
   /// In en, this message translates to:
-  /// **'Mood score is required'**
+  /// **'Emotional intensity is required'**
   String get dreamFormValidationMoodRequired;
 
   /// No description provided for @dreamFormValidationMoodRange.
   ///
   /// In en, this message translates to:
-  /// **'Mood score must be between 1 and 5'**
+  /// **'Emotional intensity must be between 1 and 5'**
   String get dreamFormValidationMoodRange;
 
   /// No description provided for @dreamFormSaveButton.
@@ -449,13 +455,13 @@ abstract class AppLocalizations {
   /// No description provided for @dreamDetailMoodScore.
   ///
   /// In en, this message translates to:
-  /// **'Mood score'**
+  /// **'Emotional intensity'**
   String get dreamDetailMoodScore;
 
   /// No description provided for @dreamDetailMoodTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Your mood when you woke up,\nfrom 1 (very bad) to 5 (excellent).'**
+  /// **'Your emotional intensity when waking up:\n1 Calm, 2 Mild, 3 Moderate, 4 Intense, 5 Extreme.'**
   String get dreamDetailMoodTooltip;
 
   /// No description provided for @dreamDetailContextNotes.
@@ -815,7 +821,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardAvgMood.
   ///
   /// In en, this message translates to:
-  /// **'Avg. mood'**
+  /// **'Avg. intensity'**
   String get dashboardAvgMood;
 
   /// No description provided for @dashboardAiAnalyzed.
@@ -827,7 +833,7 @@ abstract class AppLocalizations {
   /// No description provided for @dashboardMoodEvolution.
   ///
   /// In en, this message translates to:
-  /// **'Mood evolution'**
+  /// **'Intensity evolution'**
   String get dashboardMoodEvolution;
 
   /// No description provided for @dashboardDreamsPerWeek.
@@ -1075,6 +1081,1014 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'An error occurred. Please try again'**
   String get authErrorGeneric;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsSectionAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'PROFILE & ACCOUNT'**
+  String get settingsSectionAccount;
+
+  /// No description provided for @settingsEditProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get settingsEditProfile;
+
+  /// No description provided for @settingsAccountSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Account & security'**
+  String get settingsAccountSecurity;
+
+  /// No description provided for @settingsNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get settingsNotifications;
+
+  /// No description provided for @settingsSectionPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'PREFERENCES'**
+  String get settingsSectionPreferences;
+
+  /// No description provided for @settingsSectionAi.
+  ///
+  /// In en, this message translates to:
+  /// **'ARTIFICIAL INTELLIGENCE'**
+  String get settingsSectionAi;
+
+  /// No description provided for @settingsAiTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus - AI Analysis'**
+  String get settingsAiTitle;
+
+  /// No description provided for @settingsAiSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Active · managed by the server'**
+  String get settingsAiSubtitle;
+
+  /// No description provided for @settingsSectionLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'LEGAL'**
+  String get settingsSectionLegal;
+
+  /// No description provided for @settingsPrivacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get settingsPrivacyPolicy;
+
+  /// No description provided for @settingsTermsAndConditions.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms and conditions'**
+  String get settingsTermsAndConditions;
+
+  /// No description provided for @dreamsListFilterByDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by date'**
+  String get dreamsListFilterByDate;
+
+  /// No description provided for @dreamsListResults.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} dream{count, plural, =1{} other{s}} found'**
+  String dreamsListResults(int count);
+
+  /// No description provided for @dreamsListNoDreamsInRange.
+  ///
+  /// In en, this message translates to:
+  /// **'No dreams in this date range'**
+  String get dreamsListNoDreamsInRange;
+
+  /// No description provided for @dreamsListClearFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filter'**
+  String get dreamsListClearFilter;
+
+  /// No description provided for @dreamsListMoodUnrated.
+  ///
+  /// In en, this message translates to:
+  /// **'Unrated'**
+  String get dreamsListMoodUnrated;
+
+  /// No description provided for @dreamsListMoodPositive.
+  ///
+  /// In en, this message translates to:
+  /// **'Positive'**
+  String get dreamsListMoodPositive;
+
+  /// No description provided for @dreamsListMoodNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get dreamsListMoodNeutral;
+
+  /// No description provided for @dreamsListMoodIntense.
+  ///
+  /// In en, this message translates to:
+  /// **'Intense'**
+  String get dreamsListMoodIntense;
+
+  /// No description provided for @dreamsListUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get dreamsListUntitled;
+
+  /// No description provided for @dreamFormNeedTextOrAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a description or an audio recording.'**
+  String get dreamFormNeedTextOrAudio;
+
+  /// No description provided for @dreamFormDescriptionMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Description must be at least {min} characters for useful analysis.'**
+  String dreamFormDescriptionMin(int min);
+
+  /// No description provided for @dreamFormAudioLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'You can attach up to {max} recordings.'**
+  String dreamFormAudioLimit(int max);
+
+  /// No description provided for @dreamFormDateSection.
+  ///
+  /// In en, this message translates to:
+  /// **'DATE'**
+  String get dreamFormDateSection;
+
+  /// No description provided for @dreamFormTitleSection.
+  ///
+  /// In en, this message translates to:
+  /// **'TITLE'**
+  String get dreamFormTitleSection;
+
+  /// No description provided for @dreamFormTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The neon forest...'**
+  String get dreamFormTitleHint;
+
+  /// No description provided for @dreamFormTellItSection.
+  ///
+  /// In en, this message translates to:
+  /// **'TELL IT'**
+  String get dreamFormTellItSection;
+
+  /// No description provided for @dreamFormDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write what you remember...'**
+  String get dreamFormDescriptionHint;
+
+  /// No description provided for @dreamFormIntensitySection.
+  ///
+  /// In en, this message translates to:
+  /// **'EMOTIONAL INTENSITY'**
+  String get dreamFormIntensitySection;
+
+  /// No description provided for @dreamFormNextButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Next ->'**
+  String get dreamFormNextButton;
+
+  /// No description provided for @dreamFormPrivateSaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dream will be saved privately'**
+  String get dreamFormPrivateSaveHint;
+
+  /// No description provided for @dreamFormVoiceRecordingsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice recordings'**
+  String get dreamFormVoiceRecordingsSection;
+
+  /// No description provided for @dreamFormAudioLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit reached (max. {max})'**
+  String dreamFormAudioLimitReached(int max);
+
+  /// No description provided for @dreamFormRecordAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Record audio'**
+  String get dreamFormRecordAudio;
+
+  /// No description provided for @dreamFormIntensityCalm.
+  ///
+  /// In en, this message translates to:
+  /// **'Calm'**
+  String get dreamFormIntensityCalm;
+
+  /// No description provided for @dreamFormIntensityMild.
+  ///
+  /// In en, this message translates to:
+  /// **'Mild'**
+  String get dreamFormIntensityMild;
+
+  /// No description provided for @dreamFormIntensityModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderate'**
+  String get dreamFormIntensityModerate;
+
+  /// No description provided for @dreamFormIntensityIntense.
+  ///
+  /// In en, this message translates to:
+  /// **'Intense'**
+  String get dreamFormIntensityIntense;
+
+  /// No description provided for @dreamFormIntensityExtreme.
+  ///
+  /// In en, this message translates to:
+  /// **'Extreme'**
+  String get dreamFormIntensityExtreme;
+
+  /// No description provided for @dreamFormContextTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Context tags'**
+  String get dreamFormContextTags;
+
+  /// No description provided for @dreamFormContextTagsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus will generate them automatically after saving'**
+  String get dreamFormContextTagsHint;
+
+  /// No description provided for @dashboardNotLoggedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Session not started. Please sign in again.'**
+  String get dashboardNotLoggedIn;
+
+  /// No description provided for @dashboardInsightAnalyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus is analyzing your dreams.'**
+  String get dashboardInsightAnalyzing;
+
+  /// No description provided for @dashboardInsightNeedMood.
+  ///
+  /// In en, this message translates to:
+  /// **'Record emotional intensity in your dreams to get correlations.'**
+  String get dashboardInsightNeedMood;
+
+  /// No description provided for @dashboardInsightTrendUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Your emotional state in dreams has improved this week. Morpheus detects a positive trend.'**
+  String get dashboardInsightTrendUp;
+
+  /// No description provided for @dashboardInsightTrendDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recent dreams show higher emotional intensity. Consider reviewing your sleep habits.'**
+  String get dashboardInsightTrendDown;
+
+  /// No description provided for @dashboardInsightPositive.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dreams consistently reflect a positive emotional state.'**
+  String get dashboardInsightPositive;
+
+  /// No description provided for @dashboardInsightNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral emotional state in your dreams. Morpheus does not detect alert patterns.'**
+  String get dashboardInsightNeutral;
+
+  /// No description provided for @dashboardInsightTense.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus detects recurring emotional tension. Consider relaxation routines before sleep.'**
+  String get dashboardInsightTense;
+
+  /// No description provided for @dashboardDayMon.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get dashboardDayMon;
+
+  /// No description provided for @dashboardDayTue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get dashboardDayTue;
+
+  /// No description provided for @dashboardDayWed.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get dashboardDayWed;
+
+  /// No description provided for @dashboardDayThu.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get dashboardDayThu;
+
+  /// No description provided for @dashboardDayFri.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get dashboardDayFri;
+
+  /// No description provided for @dashboardDaySat.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get dashboardDaySat;
+
+  /// No description provided for @dashboardDaySun.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get dashboardDaySun;
+
+  /// No description provided for @dashboardMoodTone7d.
+  ///
+  /// In en, this message translates to:
+  /// **'EMOTIONAL TONE (7 DAYS)'**
+  String get dashboardMoodTone7d;
+
+  /// No description provided for @dashboardRecurringElements.
+  ///
+  /// In en, this message translates to:
+  /// **'RECURRING ELEMENTS'**
+  String get dashboardRecurringElements;
+
+  /// No description provided for @dashboardCorrelationNeedMore.
+  ///
+  /// In en, this message translates to:
+  /// **'You need more records to detect correlations. Keep adding dreams every day.'**
+  String get dashboardCorrelationNeedMore;
+
+  /// No description provided for @dashboardCorrelationNeedMood.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate your dream emotional intensity to enable correlation analysis.'**
+  String get dashboardCorrelationNeedMood;
+
+  /// No description provided for @dashboardCorrelationHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Your intense dreams match days with high energy and positive activity.'**
+  String get dashboardCorrelationHigh;
+
+  /// No description provided for @dashboardCorrelationStable.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus detects emotional stability. Your dreams reflect your daily rhythm.'**
+  String get dashboardCorrelationStable;
+
+  /// No description provided for @dashboardCorrelationStress.
+  ///
+  /// In en, this message translates to:
+  /// **'Your intense dreams match days of high activity or stress. Consider nighttime relaxation routines.'**
+  String get dashboardCorrelationStress;
+
+  /// No description provided for @dashboardCorrelationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CORRELATION'**
+  String get dashboardCorrelationTitle;
+
+  /// No description provided for @editProfileAvatarUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar updated'**
+  String get editProfileAvatarUpdated;
+
+  /// No description provided for @editProfileAvatarUploadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error uploading avatar'**
+  String get editProfileAvatarUploadError;
+
+  /// No description provided for @editProfileNameValidationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not validate name'**
+  String get editProfileNameValidationError;
+
+  /// No description provided for @editProfileUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile update failed'**
+  String get editProfileUpdateFailed;
+
+  /// No description provided for @editProfileChangeAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Change avatar'**
+  String get editProfileChangeAvatar;
+
+  /// No description provided for @editProfileUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get editProfileUsername;
+
+  /// No description provided for @profilePublishedDreams.
+  ///
+  /// In en, this message translates to:
+  /// **'Published dreams'**
+  String get profilePublishedDreams;
+
+  /// No description provided for @profileNoPublishedDreams.
+  ///
+  /// In en, this message translates to:
+  /// **'You have not published any dreams yet'**
+  String get profileNoPublishedDreams;
+
+  /// No description provided for @profileFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get profileFollowers;
+
+  /// No description provided for @profileFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get profileFollowing;
+
+  /// No description provided for @dreamAnalysisTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyze dream'**
+  String get dreamAnalysisTitle;
+
+  /// No description provided for @dreamAnalysisUploadingRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading recordings...'**
+  String get dreamAnalysisUploadingRecordings;
+
+  /// No description provided for @dreamAnalysisAudioUploadFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio upload failed'**
+  String get dreamAnalysisAudioUploadFailedTitle;
+
+  /// No description provided for @dreamAnalysisAudioUploadFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t upload your recordings. Check your connection and try again before saving.'**
+  String get dreamAnalysisAudioUploadFailedMessage;
+
+  /// No description provided for @dreamAnalysisMissingContentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing content'**
+  String get dreamAnalysisMissingContentTitle;
+
+  /// No description provided for @dreamAnalysisMissingContentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'To save without analysis you need a title and at least valid text or audio. Record again or add a description.'**
+  String get dreamAnalysisMissingContentMessage;
+
+  /// No description provided for @dreamAnalysisMorfeoListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus is listening...'**
+  String get dreamAnalysisMorfeoListening;
+
+  /// No description provided for @dreamAnalysisMorfeoTranscriptionFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus could not transcribe'**
+  String get dreamAnalysisMorfeoTranscriptionFailedTitle;
+
+  /// No description provided for @dreamAnalysisMorfeoTranscriptionFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'There was a problem processing your recordings. This can happen when audio is unclear or too short. Try recording again with more detail or use \"Save without analysis\".'**
+  String get dreamAnalysisMorfeoTranscriptionFailedMessage;
+
+  /// No description provided for @dreamAnalysisMorfeoTranscriptionReadFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The recorded audio could not be read correctly. This can happen when audio is unclear or too short. Try recording again with more detail or use \"Save without analysis\".'**
+  String get dreamAnalysisMorfeoTranscriptionReadFailedMessage;
+
+  /// No description provided for @dreamAnalysisInsufficientInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient information'**
+  String get dreamAnalysisInsufficientInfoTitle;
+
+  /// No description provided for @dreamAnalysisInsufficientInfoMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your audio transcription is too short for Morpheus to analyze the dream well. This can happen when audio is unclear or too short. Try recording again with more detail or use \"Save without analysis\".'**
+  String get dreamAnalysisInsufficientInfoMessage;
+
+  /// No description provided for @dreamAnalysisMorfeoInterpreting.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus is interpreting your dream...'**
+  String get dreamAnalysisMorfeoInterpreting;
+
+  /// No description provided for @dreamAnalysisMorfeoAnalyzeFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus could not analyze'**
+  String get dreamAnalysisMorfeoAnalyzeFailedTitle;
+
+  /// No description provided for @dreamAnalysisMorfeoAnalyzeFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The analysis couldn\'t be completed right now. This can happen when audio is unclear or too short. Try recording again with more detail or use \"Save without analysis\".'**
+  String get dreamAnalysisMorfeoAnalyzeFailedMessage;
+
+  /// No description provided for @dreamAnalysisMorfeoAnalyzeUnexpectedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while analyzing the dream. This can happen when audio is unclear or too short. Try recording again with more detail or use \"Save without analysis\".'**
+  String get dreamAnalysisMorfeoAnalyzeUnexpectedMessage;
+
+  /// No description provided for @dreamAnalysisSavingToJournal.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving to your journal...'**
+  String get dreamAnalysisSavingToJournal;
+
+  /// No description provided for @dreamAnalysisSaveFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save dream'**
+  String get dreamAnalysisSaveFailedTitle;
+
+  /// No description provided for @dreamAnalysisSaveFailedAudioMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving could not be completed. It may be due to an incomplete audio upload or a connection issue. Check your connection and try again.'**
+  String get dreamAnalysisSaveFailedAudioMessage;
+
+  /// No description provided for @dreamAnalysisSaveFailedConnectionMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving could not be completed due to a connection or permissions issue. Please try again.'**
+  String get dreamAnalysisSaveFailedConnectionMessage;
+
+  /// No description provided for @dreamAnalysisSaveErrorRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving dream. Please try again.'**
+  String get dreamAnalysisSaveErrorRetry;
+
+  /// No description provided for @dreamAnalysisUnderstood.
+  ///
+  /// In en, this message translates to:
+  /// **'Understood'**
+  String get dreamAnalysisUnderstood;
+
+  /// No description provided for @dreamAnalysisSomethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong.'**
+  String get dreamAnalysisSomethingWentWrong;
+
+  /// No description provided for @dreamAnalysisMorfeoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI dream interpreter'**
+  String get dreamAnalysisMorfeoSubtitle;
+
+  /// No description provided for @dreamAnalysisCardBodyWithAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'I will transcribe your recordings and analyze key emotions, places, and themes from your dream.'**
+  String get dreamAnalysisCardBodyWithAudio;
+
+  /// No description provided for @dreamAnalysisCardBodyWithoutAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'I will analyze key emotions, places, and themes from your dream and return a useful summary.'**
+  String get dreamAnalysisCardBodyWithoutAudio;
+
+  /// No description provided for @dreamAnalysisAnalyzeWithMorfeo.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyze with Morpheus'**
+  String get dreamAnalysisAnalyzeWithMorfeo;
+
+  /// No description provided for @dreamAnalysisSaveWithoutAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Save without analysis'**
+  String get dreamAnalysisSaveWithoutAnalysis;
+
+  /// No description provided for @dreamAnalysisAudioRecordingsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} recording{count, plural, =1{} other{s}}'**
+  String dreamAnalysisAudioRecordingsCount(int count);
+
+  /// No description provided for @dreamSavedMorfeoAnalyzeFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus could not analyze the dream'**
+  String get dreamSavedMorfeoAnalyzeFailedTitle;
+
+  /// No description provided for @dreamSavedShareWithBody.
+  ///
+  /// In en, this message translates to:
+  /// **'✨ \"{title}\"\n\n{body}\n\n— Saved in Hypnos Dream Journal'**
+  String dreamSavedShareWithBody(String title, String body);
+
+  /// No description provided for @dreamSavedShareWithoutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'✨ \"{title}\"\n\n— Saved in Hypnos Dream Journal'**
+  String dreamSavedShareWithoutBody(String title);
+
+  /// No description provided for @dreamSavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dream saved!'**
+  String get dreamSavedTitle;
+
+  /// No description provided for @dreamSavedPublishDream.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish dream'**
+  String get dreamSavedPublishDream;
+
+  /// No description provided for @dreamSavedVisibleOnlyYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible only to you'**
+  String get dreamSavedVisibleOnlyYou;
+
+  /// No description provided for @dreamSavedShareSection.
+  ///
+  /// In en, this message translates to:
+  /// **'SHARE'**
+  String get dreamSavedShareSection;
+
+  /// No description provided for @dreamSavedShareWhatsapp.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp'**
+  String get dreamSavedShareWhatsapp;
+
+  /// No description provided for @dreamSavedShareMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get dreamSavedShareMore;
+
+  /// No description provided for @dreamSavedGoToJournal.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to journal'**
+  String get dreamSavedGoToJournal;
+
+  /// No description provided for @dreamSavedVisibleForEveryone.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to everyone'**
+  String get dreamSavedVisibleForEveryone;
+
+  /// No description provided for @dreamSavedVisibleForFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to followers'**
+  String get dreamSavedVisibleForFollowers;
+
+  /// No description provided for @dreamSavedMorfeoInterpretation.
+  ///
+  /// In en, this message translates to:
+  /// **'MORPHEUS INTERPRETATION'**
+  String get dreamSavedMorfeoInterpretation;
+
+  /// No description provided for @dreamMorfeoResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus result'**
+  String get dreamMorfeoResultTitle;
+
+  /// No description provided for @dreamMorfeoResultSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the full analysis before deciding how to publish your dream.'**
+  String get dreamMorfeoResultSubtitle;
+
+  /// No description provided for @dreamMorfeoResultContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue to publishing'**
+  String get dreamMorfeoResultContinue;
+
+  /// No description provided for @dreamMorfeoResultEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Morpheus did not return enough analysis details for this dream.'**
+  String get dreamMorfeoResultEmpty;
+
+  /// No description provided for @dreamMorfeoResultEmptyField.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get dreamMorfeoResultEmptyField;
+
+  /// No description provided for @accountSecurityBiometricDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable biometric unlock'**
+  String get accountSecurityBiometricDialogTitle;
+
+  /// No description provided for @accountSecurityBiometricDialogMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password to save this access on this device.'**
+  String get accountSecurityBiometricDialogMessage;
+
+  /// No description provided for @accountSecurityCurrentPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get accountSecurityCurrentPasswordLabel;
+
+  /// No description provided for @accountSecurityActivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get accountSecurityActivate;
+
+  /// No description provided for @accountSecurityBiometricDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock disabled'**
+  String get accountSecurityBiometricDisabled;
+
+  /// No description provided for @accountSecurityBiometricPasswordOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Can only be enabled for email/password accounts'**
+  String get accountSecurityBiometricPasswordOnly;
+
+  /// No description provided for @accountSecurityBiometricEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock enabled'**
+  String get accountSecurityBiometricEnabled;
+
+  /// No description provided for @accountSecurityBiometricEnableFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not enable biometrics'**
+  String get accountSecurityBiometricEnableFailed;
+
+  /// No description provided for @accountSecurityVisibilityEveryone.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get accountSecurityVisibilityEveryone;
+
+  /// No description provided for @accountSecurityVisibilityFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers only'**
+  String get accountSecurityVisibilityFollowers;
+
+  /// No description provided for @accountSecurityVisibilityPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get accountSecurityVisibilityPrivate;
+
+  /// No description provided for @accountSecurityResetPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get accountSecurityResetPasswordTitle;
+
+  /// No description provided for @accountSecurityResetPasswordMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll send a link to {email}.'**
+  String accountSecurityResetPasswordMessage(String email);
+
+  /// No description provided for @accountSecurityResetPasswordSendLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Send link'**
+  String get accountSecurityResetPasswordSendLink;
+
+  /// No description provided for @accountSecurityResetPasswordSendError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send link'**
+  String get accountSecurityResetPasswordSendError;
+
+  /// No description provided for @accountSecurityEmailSentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Email sent!'**
+  String get accountSecurityEmailSentTitle;
+
+  /// No description provided for @accountSecurityEmailSentPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ve sent a reset link to '**
+  String get accountSecurityEmailSentPrefix;
+
+  /// No description provided for @accountSecurityEmailSentSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'\n\nAlso check your spam folder.'**
+  String get accountSecurityEmailSentSuffix;
+
+  /// No description provided for @accountSecurityVisibilityUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Visibility updated'**
+  String get accountSecurityVisibilityUpdated;
+
+  /// No description provided for @accountSecurityLogoutConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out?'**
+  String get accountSecurityLogoutConfirmMessage;
+
+  /// No description provided for @accountSecurityDeleteWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is incorrect'**
+  String get accountSecurityDeleteWrongPassword;
+
+  /// No description provided for @accountSecurityDeleteRequiresRecentLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'For security, log in again and retry'**
+  String get accountSecurityDeleteRequiresRecentLogin;
+
+  /// No description provided for @accountSecurityDeleteReauthUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This account does not use a password. Sign in with your provider and retry'**
+  String get accountSecurityDeleteReauthUnavailable;
+
+  /// No description provided for @accountSecurityDeleteGenericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete account. Please try again'**
+  String get accountSecurityDeleteGenericError;
+
+  /// No description provided for @accountSecurityDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get accountSecurityDeleteTitle;
+
+  /// No description provided for @accountSecurityDeleteDialogMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This action is permanent. Enter your password to confirm.'**
+  String get accountSecurityDeleteDialogMessage;
+
+  /// No description provided for @accountSecurityDeletePermanently.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get accountSecurityDeletePermanently;
+
+  /// No description provided for @accountSecurityCredentialsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'CREDENTIALS'**
+  String get accountSecurityCredentialsSection;
+
+  /// No description provided for @accountSecurityNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get accountSecurityNoData;
+
+  /// No description provided for @accountSecurityChangePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change password'**
+  String get accountSecurityChangePassword;
+
+  /// No description provided for @accountSecurityPrivacySection.
+  ///
+  /// In en, this message translates to:
+  /// **'PRIVACY'**
+  String get accountSecurityPrivacySection;
+
+  /// No description provided for @accountSecurityBiometricTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock'**
+  String get accountSecurityBiometricTitle;
+
+  /// No description provided for @accountSecurityBiometricSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your fingerprint to sign in on this device.'**
+  String get accountSecurityBiometricSupported;
+
+  /// No description provided for @accountSecurityBiometricUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This device does not support biometrics.'**
+  String get accountSecurityBiometricUnsupported;
+
+  /// No description provided for @accountSecurityDreamVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Dream visibility'**
+  String get accountSecurityDreamVisibility;
+
+  /// No description provided for @accountSecurityAccountActionsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT ACTIONS'**
+  String get accountSecurityAccountActionsSection;
+
+  /// No description provided for @accountSecurityPermanentActionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'These actions are permanent and cannot be undone.'**
+  String get accountSecurityPermanentActionsHint;
+
+  /// No description provided for @accountSecurityVisibilityEveryoneSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dreams are publicly available.'**
+  String get accountSecurityVisibilityEveryoneSubtitle;
+
+  /// No description provided for @accountSecurityVisibilityFollowersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only people who follow you can see your dreams.'**
+  String get accountSecurityVisibilityFollowersSubtitle;
+
+  /// No description provided for @accountSecurityVisibilityPrivateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No one can see your dreams.'**
+  String get accountSecurityVisibilityPrivateSubtitle;
+
+  /// No description provided for @socialFollowRequestsNotLoggedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Session not started'**
+  String get socialFollowRequestsNotLoggedIn;
+
+  /// No description provided for @socialFollowRequestsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow requests'**
+  String get socialFollowRequestsTitle;
+
+  /// No description provided for @socialFollowRequestsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load requests. Please try again.'**
+  String get socialFollowRequestsLoadError;
+
+  /// No description provided for @socialFollowRequestsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending requests'**
+  String get socialFollowRequestsEmpty;
+
+  /// No description provided for @socialFollowRequestsAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get socialFollowRequestsAccept;
+
+  /// No description provided for @socialFollowRequestsDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get socialFollowRequestsDecline;
 }
 
 class _AppLocalizationsDelegate

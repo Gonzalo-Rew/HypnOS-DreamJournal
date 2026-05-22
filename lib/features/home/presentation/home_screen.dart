@@ -1,18 +1,21 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
+import 'package:hypnos_dreamjournal/app/main_shell.dart';
 import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_detail_screen.dart';
-import 'package:hypnos_dreamjournal/features/dreams/presentation/dreams_list_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/public_profile_screen.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/user_search_screen.dart';
-import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/utils/intensity_utils.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/glass_card.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/hypnos_app_bar.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -62,9 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openAllDreams() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const DreamsListScreen()));
+    MainShell.switchToTab(1);
   }
 
   @override
@@ -132,6 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: _openDetail,
                       ),
                     ],
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    _FollowingDreamsSection(
+                      currentUserId: FirebaseService.getCurrentUserId() ?? '',
+                    ),
                   ],
                 ),
               ),
@@ -151,6 +158,11 @@ class _HeroOrbCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    final assistantName = l.welcomeMorpheusTitle;
+
     return GlassCard(
       radius: AppRadius.lg,
       padding: const EdgeInsets.symmetric(
@@ -166,7 +178,9 @@ class _HeroOrbCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Morfeo te escucha',
+                  isEs
+                      ? '$assistantName te escucha'
+                      : '$assistantName is listening to you',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontSize: 17,
@@ -197,18 +211,12 @@ class _LastDreamFeaturedCard extends StatelessWidget {
   final Dream dream;
   final VoidCallback onTap;
 
-  String _emotionLabel() {
-    final score = dream.moodScore;
-    if (score == null) return 'Sin valorar';
-    if (score >= 5) return 'Intenso';
-    if (score >= 4) return 'Positivo';
-    if (score >= 3) return 'Neutral';
-    if (score >= 2) return 'Inquieto';
-    return 'Oscuro';
-  }
+  String _emotionLabel(AppLocalizations l) =>
+      IntensityUtils.label(l, dream.moodScore);
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -249,7 +257,7 @@ class _LastDreamFeaturedCard extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      _emotionLabel(),
+                      _emotionLabel(l),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -397,25 +405,20 @@ class _RecentDreamCard extends StatelessWidget {
   final VoidCallback onTap;
 
   Color _moodColor() {
-    final score = dream.moodScore;
-    if (score == null) return AppColors.textSecondary;
-    if (score >= 4) return AppColors.success;
-    if (score >= 3) return AppColors.warning;
-    return AppColors.error;
+    return IntensityUtils.color(dream.moodScore);
   }
 
-  String _tagLabel() {
-    if (dream.tags.isNotEmpty) return dream.tags.first.toUpperCase();
-    final score = dream.moodScore;
-    if (score == null) return 'SIN TAG';
-    if (score >= 5) return 'INTENSO';
-    if (score >= 4) return 'LUCIDO';
-    if (score >= 3) return 'NORMAL';
-    return 'OSCURO';
+  String _tagLabel(AppLocalizations l) {
+    if (dream.tags.isNotEmpty) {
+      final firstTag = dream.tags.first;
+      if (!firstTag.startsWith('mood:')) return firstTag.toUpperCase();
+    }
+    return IntensityUtils.upperLabel(l, dream.moodScore);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final dateLabel = DateFormat('MMM d').format(dream.dreamDate).toUpperCase();
 
     return GestureDetector(
@@ -484,7 +487,7 @@ class _RecentDreamCard extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  _tagLabel(),
+                  _tagLabel(l),
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
@@ -515,6 +518,232 @@ class _LoadingCard extends StatelessWidget {
           color: AppColors.accentPrimary,
           strokeWidth: 2,
         ),
+      ),
+    );
+  }
+}
+
+class _FollowingDreamsSection extends StatelessWidget {
+  const _FollowingDreamsSection({required this.currentUserId});
+
+  final String currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    if (currentUserId.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sueños de la gente que sigues',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.firestore
+              .collection('follows')
+              .where('followerId', isEqualTo: currentUserId)
+              .snapshots(),
+          builder: (context, followsSnap) {
+            if (followsSnap.connectionState == ConnectionState.waiting) {
+              return const _LoadingCard();
+            }
+
+            final followingIds =
+                followsSnap.data?.docs
+                    .map((doc) => doc.data()['followingId'] as String? ?? '')
+                    .where((id) => id.isNotEmpty)
+                    .toSet()
+                    .toList() ??
+                const <String>[];
+
+            if (followingIds.isEmpty) {
+              return const _FollowingEmptyCard(
+                icon: Icons.people_outline,
+                title: 'Tu feed social está esperando',
+                message:
+                    'Cuando sigas a otros usuarios, verás sus sueños publicados aquí.',
+              );
+            }
+
+            final limitedIds = followingIds.take(10).toList();
+
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseService.firestore
+                  .collection('publicDreams')
+                  .where('userId', whereIn: limitedIds)
+                  .orderBy('publishedAt', descending: true)
+                  .limit(20)
+                  .snapshots(),
+              builder: (context, dreamsSnap) {
+                if (dreamsSnap.connectionState == ConnectionState.waiting) {
+                  return const _LoadingCard();
+                }
+
+                final dreamDocs = dreamsSnap.data?.docs ?? const [];
+                if (dreamDocs.isEmpty) {
+                  return const _FollowingEmptyCard(
+                    icon: Icons.nights_stay_outlined,
+                    title: 'Aún no hay sueños publicados',
+                    message:
+                        'La gente que sigues todavía no ha publicado sueños.',
+                  );
+                }
+
+                return Column(
+                  children: dreamDocs.map((doc) {
+                    final data = doc.data();
+                    final userId = data['userId'] as String? ?? '';
+                    final title = data['title'] as String? ?? 'Sueño';
+                    final text = data['text'] as String? ?? '';
+                    final preview = text.length > 120
+                        ? '${text.substring(0, 120)}...'
+                        : text;
+                    final publishedAt =
+                        (data['publishedAt'] as dynamic)?.toDate() as DateTime?;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          onTap: userId.isEmpty
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PublicProfileScreen(userId: userId),
+                                  ),
+                                ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (publishedAt != null)
+                                Text(
+                                  DateFormat(
+                                    'd MMM, HH:mm',
+                                  ).format(publishedAt),
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              if (publishedAt != null)
+                                const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (preview.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  preview,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FollowingEmptyCard extends StatelessWidget {
+  const _FollowingEmptyCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceGlass,
+            AppColors.accentSecondary.withValues(alpha: 0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.borderSubtle.withValues(alpha: 0.95),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.accentPrimary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.accentPrimary.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Icon(icon, color: AppColors.accentPrimary, size: 22),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

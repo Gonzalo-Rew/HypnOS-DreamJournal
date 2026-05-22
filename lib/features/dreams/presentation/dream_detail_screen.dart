@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
-import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_text_styles.dart';
 import 'package:hypnos_dreamjournal/core/config/app_settings.dart';
@@ -14,7 +14,10 @@ import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/gemini_service.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
+import 'package:hypnos_dreamjournal/shared/utils/analysis_language_utils.dart';
+import 'package:hypnos_dreamjournal/shared/utils/intensity_utils.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/audio_player_widget.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_form_screen.dart';
 
 class DreamDetailScreen extends StatefulWidget {
@@ -28,7 +31,6 @@ class DreamDetailScreen extends StatefulWidget {
 
 class _DreamDetailScreenState extends State<DreamDetailScreen> {
   final DreamRepository _dreamRepository = DreamRepositoryImpl();
-  final SocialRepository _social = SocialRepositoryImpl();
   late Dream _dream;
 
   bool _isDeleting = false;
@@ -39,6 +41,8 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
   bool _isAnalyzing = false;
   DreamAnalysis? _analysis;
   String? _analysisError;
+  String? _lastLocaleCode;
+  bool _isEnsuringLocaleAnalysis = false;
 
   // Sprint 4: AI enabled toggle
   bool _aiEnabled = true;
@@ -50,9 +54,199 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     _loadAiEnabled();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentLocaleCode = _currentLocaleCode();
+
+    if (_lastLocaleCode == null) {
+      _lastLocaleCode = currentLocaleCode;
+      _ensureLocaleAnalysisForCurrentLanguage();
+      return;
+    }
+
+    if (_lastLocaleCode == currentLocaleCode) {
+      return;
+    }
+
+    _lastLocaleCode = currentLocaleCode;
+
+    if (_analysis != null) {
+      setState(() {
+        _analysis = null;
+      });
+    }
+
+    _ensureLocaleAnalysisForCurrentLanguage();
+  }
+
   Future<void> _loadAiEnabled() async {
     final enabled = await AppSettings.instance.getAiEnabled();
-    if (mounted) setState(() => _aiEnabled = enabled);
+    if (!mounted) return;
+
+    setState(() => _aiEnabled = enabled);
+    if (enabled) {
+      _ensureLocaleAnalysisForCurrentLanguage();
+    }
+  }
+
+  String _normalizeLocaleCode(String code) {
+    return AnalysisLanguageUtils.normalizeLocaleCode(code);
+  }
+
+  String _currentLocaleCode() {
+    return _normalizeLocaleCode(Localizations.localeOf(context).languageCode);
+  }
+
+  Map<String, dynamic>? _asMap(dynamic raw) {
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _analysisForLocale(String localeCode) {
+    final byLanguage = _dream.aiAnalysisByLanguage;
+    if (byLanguage == null || byLanguage.isEmpty) return null;
+
+    final exact = _asMap(byLanguage[localeCode]);
+    if (exact != null && exact.isNotEmpty) return exact;
+
+    for (final entry in byLanguage.entries) {
+      if (_normalizeLocaleCode(entry.key) == localeCode) {
+        final mapped = _asMap(entry.value);
+        if (mapped != null && mapped.isNotEmpty) {
+          return mapped;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasOtherLanguageAnalysis(String localeCode) {
+    final byLanguage = _dream.aiAnalysisByLanguage;
+    if (byLanguage == null || byLanguage.isEmpty) return false;
+
+    for (final entry in byLanguage.entries) {
+      if (_normalizeLocaleCode(entry.key) == localeCode) continue;
+      final mapped = _asMap(entry.value);
+      if (mapped != null && mapped.isNotEmpty) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _ensureLocaleAnalysisForCurrentLanguage() async {
+    if (!_aiEnabled || !mounted || _isAnalyzing || _isEnsuringLocaleAnalysis) {
+      return;
+    }
+
+    final localeCode = _currentLocaleCode();
+    if (_analysisForLocale(localeCode) != null) {
+      return;
+    }
+
+    if (!_hasOtherLanguageAnalysis(localeCode)) {
+      return;
+    }
+
+    _isEnsuringLocaleAnalysis = true;
+    try {
+      await _runAnalysis(silent: true, forcedLocaleCode: localeCode);
+    } finally {
+      _isEnsuringLocaleAnalysis = false;
+    }
+  }
+
+  DreamAnalysis? get _storedAnalysis {
+    final data = _analysisForLocale(_currentLocaleCode()) ?? _dream.aiAnalysis;
+    if (data == null) return null;
+
+    List<String> readList(String key) {
+      final raw = data[key];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    final parsed = DreamAnalysis(
+      sentiment: data['sentiment'] as String? ?? '',
+      category: data['category'] as String? ?? '',
+      emotions: readList('emotions'),
+      characters: readList('characters'),
+      places: readList('places'),
+      themes: readList('themes'),
+      psychologicalNote: data['psychologicalNote'] as String? ?? '',
+      summary: data['summary'] as String? ?? '',
+    );
+
+    final localized = AnalysisLanguageUtils.coerceToLocale(
+      analysis: parsed,
+      localeCode: _currentLocaleCode(),
+      dreamText: _dream.text,
+    );
+
+    return AnalysisLanguageUtils.alignWithDreamSignals(
+      analysis: localized,
+      dreamText: _dream.text,
+      localeCode: _currentLocaleCode(),
+    );
+  }
+
+  DreamAnalysis? get _resolvedAnalysis => _analysis ?? _storedAnalysis;
+
+  String _intensityLabel(AppLocalizations l) {
+    return IntensityUtils.label(l, _dream.moodScore);
+  }
+
+  Color _intensityColor() => IntensityUtils.color(_dream.moodScore);
+
+  bool _isPendingAiCategoryLabel(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'pending ai categorization' ||
+        normalized == 'pendiente de categorizacion ia' ||
+        normalized == 'pendiente de categorización ia';
+  }
+
+  String _displayAiCategory(AppLocalizations l) {
+    final category = _analysisCategory();
+    if (category == null || _isPendingAiCategoryLabel(category)) {
+      return l.dreamDetailAiCategoryPending;
+    }
+    return category;
+  }
+
+  String? _analysisCategory() {
+    final analysis = _resolvedAnalysis;
+    final category = analysis?.category.trim();
+    if (category != null &&
+        category.isNotEmpty &&
+        !_isPendingAiCategoryLabel(category)) {
+      return category;
+    }
+    final fallback = _dream.aiCategory?.trim();
+    if (fallback != null &&
+        fallback.isNotEmpty &&
+        !_isPendingAiCategoryLabel(fallback)) {
+      return fallback;
+    }
+    return null;
+  }
+
+  String? _analysisSummary() {
+    final analysis = _resolvedAnalysis;
+    final summary = analysis?.summary.trim();
+    if (summary != null && summary.isNotEmpty) return summary;
+    final fallback = _dream.aiSummary?.trim();
+    if (fallback != null && fallback.isNotEmpty) return fallback;
+    return null;
   }
 
   Future<void> _refreshDream() async {
@@ -96,23 +290,123 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
   Future<void> _deleteDream() async {
     final confirm = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (ctx) {
         final dl = AppLocalizations.of(ctx);
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1E2230),
-          surfaceTintColor: Colors.transparent,
-          title: Text(dl.dreamDetailDeleteDialogTitle),
-          content: Text(dl.dreamDetailDeleteDialogContent),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(dl.dreamDetailDeleteCancel),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E2230),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: AppColors.error.withValues(alpha: 0.30),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.error.withValues(alpha: 0.10),
+                  blurRadius: 30,
+                  spreadRadius: -6,
+                ),
+                BoxShadow(
+                  color: AppColors.accentPrimary.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  spreadRadius: -8,
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(dl.dreamDetailDeleteConfirm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.error.withValues(alpha: 0.24),
+                        AppColors.error.withValues(alpha: 0.12),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: AppColors.error,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  dl.dreamDetailDeleteDialogTitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  dl.dreamDetailDeleteDialogContent,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: AppColors.borderSubtle.withValues(
+                              alpha: 0.8,
+                            ),
+                          ),
+                          foregroundColor: AppColors.textSecondary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(dl.dreamDetailDeleteCancel),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: AppColors.textPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          dl.dreamDetailDeleteConfirm,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -149,54 +443,96 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
     });
   }
 
-  Future<void> _runAnalysis() async {
+  Future<void> _runAnalysis({
+    bool silent = false,
+    String? forcedLocaleCode,
+  }) async {
+    if (_isAnalyzing) return;
+
     setState(() {
       _isAnalyzing = true;
-      _analysisError = null;
+      if (!silent) {
+        _analysisError = null;
+      }
     });
 
     if (!mounted) return;
+
+    final localeCode = forcedLocaleCode ?? _currentLocaleCode();
 
     final result = await GeminiService.instance.analyzeDream(
       title: _dream.title,
       text: _dream.text,
       moodScore: _dream.moodScore,
       contextNotes: _dream.contextNotes,
+      language: localeCode,
     );
 
     if (!mounted) return;
 
     if (result is Success<DreamAnalysis>) {
-      final analysis = result.value;
-      // Persist aiCategory and aiSummary back to Firestore
-      _dreamRepository.updateDream(
+      final localizedAnalysis = AnalysisLanguageUtils.coerceToLocale(
+        analysis: result.value,
+        localeCode: localeCode,
+        dreamText: _dream.text,
+      );
+      final alignedAnalysis = AnalysisLanguageUtils.alignWithDreamSignals(
+        analysis: localizedAnalysis,
+        dreamText: _dream.text,
+        localeCode: localeCode,
+      );
+      final analysisMap = alignedAnalysis.toMap();
+      final mergedByLanguage = Map<String, dynamic>.from(
+        _dream.aiAnalysisByLanguage ?? const <String, dynamic>{},
+      );
+      mergedByLanguage[localeCode] = analysisMap;
+
+      await _dreamRepository.updateDream(
         userId: _dream.userId,
         dreamId: _dream.id,
         data: {
-          'aiCategory': analysis.category,
-          'aiSummary': analysis.summary,
+          'aiCategory': alignedAnalysis.category,
+          'aiSummary': alignedAnalysis.summary,
           'transcription': _dream.transcription,
-          'aiAnalysisData': analysis.toMap(),
+          'aiAnalysis': analysisMap,
+          'aiAnalysisByLanguage': mergedByLanguage,
         },
       );
+
       setState(() {
-        _analysis = analysis;
+        _analysis = alignedAnalysis;
         _isAnalyzing = false;
         _dream = _dream.copyWith(
-          aiCategory: analysis.category,
-          aiSummary: analysis.summary,
+          aiCategory: alignedAnalysis.category,
+          aiSummary: alignedAnalysis.summary,
+          aiAnalysis: analysisMap,
+          aiAnalysisByLanguage: mergedByLanguage,
         );
       });
     } else {
       final failure = result as Failure<DreamAnalysis>;
       setState(() {
         _isAnalyzing = false;
-        _analysisError = AppError.handle(
-          failure.exception,
-          'DreamDetail.analyze',
-        );
+        if (!silent) {
+          _analysisError = AppError.handle(
+            failure.exception,
+            'DreamDetail.analyze',
+          );
+        }
       });
     }
+  }
+
+  void _shareDream() {
+    final l = AppLocalizations.of(context);
+    final title = _dream.title.trim().isNotEmpty
+        ? _dream.title.trim()
+        : l.dreamsListUntitled;
+    final body = _dream.text.trim();
+    final shareText = body.isNotEmpty
+        ? l.dreamSavedShareWithBody(title, body)
+        : l.dreamSavedShareWithoutBody(title);
+    Share.share(shareText, subject: title);
   }
 
   @override
@@ -224,55 +560,41 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
           children: [
             Text(
               _dream.title,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            Text(DateFormat.yMMMd().add_jm().format(_dream.dreamDate)),
-            const SizedBox(height: AppSpacing.md),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  _dream.text.isNotEmpty ? _dream.text : '-',
-                  style: AppTextStyles.dreamBody,
+            Row(
+              children: [
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 14,
+                  color: AppColors.textSecondary,
                 ),
-              ),
+                const SizedBox(width: 6),
+                Text(
+                  DateFormat.yMMMd().add_jm().format(_dream.dreamDate),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    title: Row(
-                      children: [
-                        Text(l.dreamDetailMoodScore),
-                        const SizedBox(width: 6),
-                        Tooltip(
-                          message: l.dreamDetailMoodTooltip,
-                          triggerMode: TooltipTriggerMode.tap,
-                          child: const Icon(Icons.info_outline, size: 16),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text((_dream.moodScore ?? 3).toString()),
-                  ),
-                  ListTile(
-                    title: Text(l.dreamDetailContextNotes),
-                    subtitle: Text(
-                      _dream.contextNotes?.isNotEmpty == true
-                          ? _dream.contextNotes!
-                          : '-',
-                    ),
-                  ),
-                  ListTile(
-                    title: Text(l.dreamDetailAiCategory),
-                    subtitle: Text(
-                      _dream.aiCategory ?? l.dreamDetailAiCategoryPending,
-                    ),
-                  ),
-                ],
-              ),
+            _DreamNarrativeCard(
+              intensityLabel: _intensityLabel(l),
+              intensityColor: _intensityColor(),
+              text: _dream.text.isNotEmpty ? _dream.text : '-',
             ),
+            const SizedBox(height: AppSpacing.md),
+            _DreamMetaCard(
+              intensityLabel: _intensityLabel(l),
+              aiCategory: _displayAiCategory(l),
+            ),
+            const SizedBox(height: AppSpacing.md),
             // ── Audio players ─────────────────────────────────────────────
             if (_dream.hasAudio) ...[
               const SizedBox(height: AppSpacing.md),
@@ -324,11 +646,11 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
             const SizedBox(height: AppSpacing.md),
             if (_aiEnabled)
               _AiAnalysisSection(
-                analysis: _analysis,
-                aiSummary: _dream.aiSummary,
+                analysis: _resolvedAnalysis,
+                aiSummary: _analysisSummary(),
                 isAnalyzing: _isAnalyzing,
                 analysisError: _analysisError,
-                onRunAnalysis: _runAnalysis,
+                onRunAnalysis: () => _runAnalysis(),
               )
             else
               Container(
@@ -355,14 +677,13 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                   ],
                 ),
               ),
-            // ── Social (likes & comments) — only for published dreams ────
-            if (_dream.isPublished) ...[
+            if ((_resolvedAnalysis != null ||
+                    (_analysisSummary()?.isNotEmpty ?? false)) &&
+                _dream.text.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
-              _SocialBar(
-                dreamId: _dream.id,
-                dreamTitle: _dream.title,
-                social: _social,
-                currentUserId: FirebaseService.getCurrentUser()?.uid ?? '',
+              _GeneratedVisualizationCard(
+                label: 'Visualizacion generada',
+                title: _displayAiCategory(l),
               ),
             ],
             // ─────────────────────────────────────────────────────────────
@@ -374,22 +695,14 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
               ),
             ],
             const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: _isDeleting ? null : _editDream,
-              icon: const Icon(Icons.edit),
-              label: Text(l.dreamDetailEditButton),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            OutlinedButton.icon(
-              onPressed: _isDeleting ? null : _deleteDream,
-              icon: _isDeleting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete),
-              label: Text(l.dreamDetailDeleteButton),
+            _DetailActionButtons(
+              isDeleting: _isDeleting,
+              onEdit: _editDream,
+              onDelete: _deleteDream,
+              onShare: _shareDream,
+              editLabel: l.dreamDetailEditButton,
+              deleteLabel: l.dreamDetailDeleteButton,
+              shareLabel: l.dreamSavedShareSection,
             ),
             const SizedBox(height: AppSpacing.lg),
           ],
@@ -418,30 +731,85 @@ class _AiAnalysisSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    final hasPreviousAnalysis =
+        analysis != null || (aiSummary != null && aiSummary!.trim().isNotEmpty);
+    final localeCode = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase();
+    final rerunLabel = localeCode.startsWith('es')
+        ? 'Volver a ejecutar análisis IA'
+        : 'Run AI analysis again';
+    final analyzeButtonLabel = isAnalyzing
+        ? l.dreamDetailAnalyzing
+        : hasPreviousAnalysis
+        ? rerunLabel
+        : l.dreamDetailAnalyzeButton;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.accentSecondary.withValues(alpha: 0.16),
+            AppColors.surfaceGlass,
+            AppColors.accentPrimary.withValues(alpha: 0.08),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(
+          color: AppColors.accentSecondary.withValues(alpha: 0.28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentSecondary.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.auto_awesome,
-                color: AppColors.accentPrimary,
-                size: 18,
+              const SizedBox(
+                width: 34,
+                height: 34,
+                child: Center(
+                  child: MorpheusOrb(size: 24, showBlueGlow: false),
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                l.dreamDetailAiAnalysis,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: AppColors.textPrimary),
+                l.welcomeMorpheusTitle,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.accentSecondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  analysis?.category ?? l.dreamDetailAiCategoryPending,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.accentSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),
@@ -456,67 +824,128 @@ class _AiAnalysisSection extends StatelessWidget {
           ],
           if (analysis != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            _AnalysisRow(
-              label: l.dreamDetailAiSentiment,
-              value: analysis!.sentiment,
-            ),
-            if (analysis!.emotions.isNotEmpty)
-              _AnalysisRow(
-                label: l.dreamDetailAiEmotions,
-                value: analysis!.emotions.join(', '),
-              ),
-            if (analysis!.characters.isNotEmpty)
-              _AnalysisRow(
-                label: l.dreamDetailAiCharacters,
-                value: analysis!.characters.join(', '),
-              ),
-            if (analysis!.places.isNotEmpty)
-              _AnalysisRow(
-                label: l.dreamDetailAiPlaces,
-                value: analysis!.places.join(', '),
-              ),
-            if (analysis!.themes.isNotEmpty)
-              _AnalysisRow(
-                label: l.dreamDetailAiThemes,
-                value: analysis!.themes.join(', '),
-              ),
-            if (analysis!.psychologicalNote.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                l.dreamDetailAiPsychNote,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.accentSecondary,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: AppColors.accentSecondary.withValues(alpha: 0.22),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                analysis!.psychologicalNote,
-                style: Theme.of(context).textTheme.bodyMedium,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    analysis!.category,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (analysis!.summary.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(analysis!.summary, style: AppTextStyles.dreamBody),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _AnalysisFieldCard(
+                  label: l.dreamDetailAiSentiment,
+                  value: analysis!.sentiment,
+                ),
+                if (analysis!.emotions.isNotEmpty)
+                  _AnalysisFieldCard(
+                    label: l.dreamDetailAiEmotions,
+                    value: analysis!.emotions.join(', '),
+                  ),
+                if (analysis!.characters.isNotEmpty)
+                  _AnalysisFieldCard(
+                    label: l.dreamDetailAiCharacters,
+                    value: analysis!.characters.join(', '),
+                  ),
+                if (analysis!.places.isNotEmpty)
+                  _AnalysisFieldCard(
+                    label: l.dreamDetailAiPlaces,
+                    value: analysis!.places.join(', '),
+                  ),
+                if (analysis!.themes.isNotEmpty)
+                  _AnalysisFieldCard(
+                    label: l.dreamDetailAiThemes,
+                    value: analysis!.themes.join(', '),
+                  ),
+              ],
+            ),
+            if (analysis!.psychologicalNote.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: AppColors.accentSecondary.withValues(alpha: 0.20),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.dreamDetailAiPsychNote,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.accentSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      analysis!.psychologicalNote,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
             ],
           ] else if (aiSummary != null && aiSummary!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(aiSummary!, style: Theme.of(context).textTheme.bodyMedium),
+            Text(aiSummary!, style: AppTextStyles.dreamBody),
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              isEs
+                  ? '${l.welcomeMorpheusTitle} todavía no ha analizado este sueño.'
+                  : '${l.welcomeMorpheusTitle} has not analyzed this dream yet.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
           ],
           const SizedBox(height: AppSpacing.sm),
-          OutlinedButton.icon(
-            onPressed: isAnalyzing ? null : onRunAnalysis,
-            icon: isAnalyzing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.accentPrimary,
-                    ),
-                  )
-                : const Icon(Icons.auto_awesome, size: 16),
-            label: Text(
-              isAnalyzing ? l.dreamDetailAnalyzing : l.dreamDetailAnalyzeButton,
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.accentPrimary,
-              side: const BorderSide(color: AppColors.accentPrimary),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: isAnalyzing ? null : onRunAnalysis,
+              icon: isAnalyzing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 16),
+              label: Text(analyzeButtonLabel),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentSecondary,
+                foregroundColor: Colors.white,
+              ),
             ),
           ),
         ],
@@ -525,46 +954,434 @@ class _AiAnalysisSection extends StatelessWidget {
   }
 }
 
-class _AnalysisRow extends StatelessWidget {
-  const _AnalysisRow({required this.label, required this.value});
+class _DreamNarrativeCard extends StatelessWidget {
+  const _DreamNarrativeCard({
+    required this.text,
+    required this.intensityLabel,
+    required this.intensityColor,
+  });
+
+  final String text;
+  final String intensityLabel;
+  final Color intensityColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceGlass,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                color: AppColors.accentPrimary,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Relato del sueño',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: intensityColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  intensityLabel,
+                  style: TextStyle(
+                    color: intensityColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            text,
+            style: AppTextStyles.dreamBody.copyWith(
+              height: 1.55,
+              fontSize: 16,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DreamMetaCard extends StatelessWidget {
+  const _DreamMetaCard({
+    required this.intensityLabel,
+    required this.aiCategory,
+  });
+
+  final String intensityLabel;
+  final String aiCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceGlass,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        children: [
+          _MetaLine(
+            icon: Icons.bolt_rounded,
+            label: l.dreamDetailMoodScore,
+            value: intensityLabel,
+            valueColor: AppColors.accentPrimary,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _MetaLine(
+            icon: Icons.auto_awesome_outlined,
+            label: l.dreamDetailAiCategory,
+            value: aiCategory,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: AppColors.textSecondary),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: valueColor ?? AppColors.textPrimary,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GeneratedVisualizationCard extends StatelessWidget {
+  const _GeneratedVisualizationCard({required this.label, required this.title});
+
+  final String label;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final isEs = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    return Container(
+      height: 190,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.accentSecondary.withValues(alpha: 0.22),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.24),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
+          ),
+        ],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1A1740),
+            AppColors.accentSecondary.withValues(alpha: 0.45),
+            const Color(0xFF0E1125),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -28,
+            top: -36,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 18,
+            top: 18,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 18,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isEs
+                      ? 'Una reinterpretación visual suave del sueño, en el lenguaje de ${l.welcomeMorpheusTitle}.'
+                      : 'A soft visual reinterpretation of the dream, in ${l.welcomeMorpheusTitle}\'s language.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailActionButtons extends StatelessWidget {
+  const _DetailActionButtons({
+    required this.isDeleting,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onShare,
+    required this.editLabel,
+    required this.deleteLabel,
+    required this.shareLabel,
+  });
+
+  final bool isDeleting;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onShare;
+  final String editLabel;
+  final String deleteLabel;
+  final String shareLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accentPrimary,
+                      AppColors.accentSecondary,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: FilledButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit),
+                  label: Text(editLabel),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: isDeleting ? null : onDelete,
+                icon: isDeleting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                label: Text(deleteLabel),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onShare,
+            icon: const Icon(Icons.ios_share_rounded),
+            label: Text(shareLabel),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.accentSecondary,
+              side: BorderSide(
+                color: AppColors.accentSecondary.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnalysisFieldCard extends StatelessWidget {
+  const _AnalysisFieldCard({required this.label, required this.value});
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$label: ',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.accentSecondary,
-              fontWeight: FontWeight.w600,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 130, maxWidth: 220),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: AppColors.accentSecondary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.accentSecondary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textPrimary,
+                height: 1.35,
+              ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── Social bar (likes + comments) ─────────────────────────────────────────────
+// ── Social bar (likes only) ───────────────────────────────────────────────────
 
 class _SocialBar extends StatefulWidget {
   const _SocialBar({
     required this.dreamId,
-    required this.dreamTitle,
     required this.social,
     required this.currentUserId,
   });
 
   final String dreamId;
-  final String dreamTitle;
   final SocialRepository social;
   final String currentUserId;
 
@@ -641,17 +1458,16 @@ class _SocialBarState extends State<_SocialBar> {
               },
             ),
 
-          // Like count from publicDreams doc
+          // Like count from likes subcollection
           const SizedBox(width: 6),
-          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseService.firestore
                 .collection('publicDreams')
                 .doc(widget.dreamId)
+                .collection('likes')
                 .snapshots(),
             builder: (_, snap) {
-              final data = snap.data?.data();
-              final likes = data?['likesCount'] as int? ?? 0;
-              final comments = data?['commentsCount'] as int? ?? 0;
+              final likes = snap.data?.docs.length ?? 0;
 
               return Row(
                 children: [
@@ -660,35 +1476,6 @@ class _SocialBarState extends State<_SocialBar> {
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CommentsScreen(
-                          dreamId: widget.dreamId,
-                          dreamTitle: widget.dreamTitle,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline,
-                          color: AppColors.textSecondary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$comments',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],

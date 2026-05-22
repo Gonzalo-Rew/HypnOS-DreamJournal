@@ -11,8 +11,12 @@ import 'package:hypnos_dreamjournal/data/services/audio_service.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 import 'package:hypnos_dreamjournal/data/services/gemini_service.dart';
 import 'package:hypnos_dreamjournal/features/dreams/data/dream_draft.dart';
+import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_morfeo_result_screen.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_saved_step_screen.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/utils/analysis_language_utils.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
 
 // ── Step 2 of the dream creation wizard ────────────────────────────────────
 // Offers AI analysis via Morfeo or direct save without analysis.
@@ -30,9 +34,13 @@ class DreamAnalysisStepScreen extends StatefulWidget {
 }
 
 class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
+  static const int _minTranscriptionChars = 40;
+  static const int _minTranscriptionWords = 8;
+
   _SaveStage _stage = _SaveStage.idle;
   String _statusLabel = '';
   String? _errorMessage;
+  bool _isMorfeoFlow = true;
 
   bool get _isLoading =>
       _stage != _SaveStage.idle && _stage != _SaveStage.error;
@@ -42,17 +50,29 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
   Future<void> _saveWithAnalysis() => _save(withAi: true);
   Future<void> _saveWithoutAnalysis() => _save(withAi: false);
 
+  String _normalizedLocaleCode() {
+    final code = Localizations.localeOf(context).languageCode.toLowerCase();
+    return code.startsWith('es') ? 'es' : 'en';
+  }
+
   Future<void> _save({required bool withAi}) async {
+    final l = AppLocalizations.of(context);
+    final localeCode = _normalizedLocaleCode();
     final userId = FirebaseService.getCurrentUserId();
     if (userId == null || !mounted) return;
+
+    setState(() {
+      _isMorfeoFlow = withAi;
+    });
 
     final draft = widget.draft;
 
     // ── 1. Upload local audio clips ─────────────────────────────────────────
-    _setStage(_SaveStage.uploading, 'Subiendo grabaciones...');
+    _setStage(_SaveStage.uploading, l.dreamAnalysisUploadingRecordings);
 
     final tempId = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
     final uploadedUrls = <String>[];
+    int uploadFailures = 0;
 
     for (var i = 0; i < draft.localAudioPaths.length; i++) {
       final res = await AudioService.instance.uploadAudio(
@@ -61,7 +81,22 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
         localFilePath: draft.localAudioPaths[i],
         audioIndex: i,
       );
-      if (res is Success<String>) uploadedUrls.add(res.value);
+      if (res is Success<String>) {
+        uploadedUrls.add(res.value);
+      } else {
+        uploadFailures++;
+      }
+    }
+
+    if (!withAi && uploadFailures > 0) {
+      await _rollbackUploadedAudio(uploadedUrls);
+      if (!mounted) return;
+      _setStage(_SaveStage.idle, '');
+      await _showSaveWarningDialog(
+        title: l.dreamAnalysisAudioUploadFailedTitle,
+        message: l.dreamAnalysisAudioUploadFailedMessage,
+      );
+      return;
     }
 
     for (final url in draft.removedExistingUrls) {
@@ -72,6 +107,16 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
         .where((u) => !draft.removedExistingUrls.contains(u))
         .toList();
     final finalAudioPaths = [...keptExisting, ...uploadedUrls];
+
+    if (!withAi && draft.text.trim().isEmpty && finalAudioPaths.isEmpty) {
+      if (!mounted) return;
+      _setStage(_SaveStage.idle, '');
+      await _showSaveWarningDialog(
+        title: l.dreamAnalysisMissingContentTitle,
+        message: l.dreamAnalysisMissingContentMessage,
+      );
+      return;
+    }
 
     // ── 2. AI: transcription + analysis via Cloud Functions ─────────────────
     String? transcription;
@@ -85,7 +130,7 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
 
       // Transcribe audio clips if any
       if (draft.localAudioPaths.isNotEmpty) {
-        _setStage(_SaveStage.transcribing, 'Morfeo está escuchando...');
+        _setStage(_SaveStage.transcribing, l.dreamAnalysisMorfeoListening);
         final parts = <String>[];
 
         for (final path in draft.localAudioPaths) {
@@ -100,10 +145,39 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
               final text = res.data['transcription'] as String?;
               if (text != null && text.isNotEmpty) parts.add(text);
             }
-          } catch (_) {}
+          } on FirebaseFunctionsException {
+            await _rollbackUploadedAudio(uploadedUrls);
+            if (!mounted) return;
+            _setStage(_SaveStage.idle, '');
+            await _showMorfeoWarningDialog(
+              title: l.dreamAnalysisMorfeoTranscriptionFailedTitle,
+              message: l.dreamAnalysisMorfeoTranscriptionFailedMessage,
+            );
+            return;
+          } catch (_) {
+            await _rollbackUploadedAudio(uploadedUrls);
+            if (!mounted) return;
+            _setStage(_SaveStage.idle, '');
+            await _showMorfeoWarningDialog(
+              title: l.dreamAnalysisMorfeoTranscriptionFailedTitle,
+              message: l.dreamAnalysisMorfeoTranscriptionReadFailedMessage,
+            );
+            return;
+          }
         }
 
         if (parts.isNotEmpty) transcription = parts.join('\n\n');
+
+        if (_isTranscriptionTooSmall(transcription)) {
+          await _rollbackUploadedAudio(uploadedUrls);
+          if (!mounted) return;
+          _setStage(_SaveStage.idle, '');
+          await _showMorfeoWarningDialog(
+            title: l.dreamAnalysisInsufficientInfoTitle,
+            message: l.dreamAnalysisInsufficientInfoMessage,
+          );
+          return;
+        }
       }
 
       // Build combined text to analyse
@@ -115,74 +189,130 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
       final analyzeText = combined.isNotEmpty ? combined : draft.text.trim();
 
       if (analyzeText.isNotEmpty) {
-        _setStage(
-          _SaveStage.analyzing,
-          'Morfeo está interpretando tu sueño...',
-        );
+        _setStage(_SaveStage.analyzing, l.dreamAnalysisMorfeoInterpreting);
 
         try {
           final res = await functions.httpsCallable('analyzeDream').call({
             'title': draft.title,
             'text': analyzeText,
             'moodScore': draft.moodScore,
+            'language': localeCode,
           });
 
-          final analysisText = res.data['analysisText'] as String?;
+          final Map<String, dynamic> data =
+              (res.data as Map?)?.cast<String, dynamic>() ?? {};
+          final analysisText = data['analysisText'] as String?;
+          final quality = (data['quality'] as String? ?? '').toLowerCase();
           if (analysisText != null && analysisText.isNotEmpty) {
-            final a = DreamAnalysis.fromText(analysisText);
+            var a = DreamAnalysis.fromText(analysisText);
+            a = AnalysisLanguageUtils.coerceToLocale(
+              analysis: a,
+              localeCode: localeCode,
+              dreamText: analyzeText,
+            );
+            a = AnalysisLanguageUtils.alignWithDreamSignals(
+              analysis: a,
+              dreamText: analyzeText,
+              localeCode: localeCode,
+            );
+            if (!_hasMeaningfulAnalysis(a)) {
+              a = _buildFallbackAnalysis(lowQualityInput: quality == 'low');
+            }
             aiAnalysisMap = a.toMap();
             aiCategory = a.category;
             aiSummary = a.summary;
-            tags = [
+            tags = <String>{
               'mood:${draft.moodScore}',
               ...a.themes.take(4),
               ...a.emotions.take(3),
-            ].toSet().toList();
+            }.toList();
           }
         } on FirebaseFunctionsException catch (e) {
-          // Non-fatal: save without analysis if the CF call fails.
           debugPrint('Morfeo CF error: ${e.code} — ${e.message}');
+          await _rollbackUploadedAudio(uploadedUrls);
+          if (!mounted) return;
+          _setStage(_SaveStage.idle, '');
+          await _showMorfeoWarningDialog(
+            title: l.dreamAnalysisMorfeoAnalyzeFailedTitle,
+            message: l.dreamAnalysisMorfeoAnalyzeFailedMessage,
+          );
+          return;
         } catch (e) {
           debugPrint('Morfeo unexpected error: $e');
+          await _rollbackUploadedAudio(uploadedUrls);
+          if (!mounted) return;
+          _setStage(_SaveStage.idle, '');
+          await _showMorfeoWarningDialog(
+            title: l.dreamAnalysisMorfeoAnalyzeFailedTitle,
+            message: l.dreamAnalysisMorfeoAnalyzeUnexpectedMessage,
+          );
+          return;
         }
       }
     }
 
     // ── 3. Save to Firestore ─────────────────────────────────────────────────
-    _setStage(_SaveStage.saving, 'Guardando en tu diario...');
+    _setStage(_SaveStage.saving, l.dreamAnalysisSavingToJournal);
 
     final repo = DreamRepositoryImpl();
     final createRes = await repo.createDream(
       userId: userId,
       title: draft.title,
       text: draft.text,
-      dreamDate: DateTime.now(),
+      dreamDate: draft.dreamDate,
       moodScore: draft.moodScore,
       tags: tags,
       audioPaths: finalAudioPaths,
       transcription: transcription,
       aiSummary: aiSummary,
-      aiCategory: aiCategory ?? 'Pending AI categorization',
+      aiCategory: aiCategory,
     );
 
     if (!mounted) return;
 
     if (createRes is Failure<Dream>) {
-      setState(() {
-        _stage = _SaveStage.error;
-        _errorMessage = 'Error al guardar el sueño. Inténtalo de nuevo.';
-      });
+      if (!withAi) {
+        final hasAnyAudioInput =
+            draft.localAudioPaths.isNotEmpty ||
+            draft.existingAudioUrls
+                .where((u) => !draft.removedExistingUrls.contains(u))
+                .isNotEmpty;
+        _setStage(_SaveStage.idle, '');
+        await _showSaveWarningDialog(
+          title: l.dreamAnalysisSaveFailedTitle,
+          message: hasAnyAudioInput
+              ? l.dreamAnalysisSaveFailedAudioMessage
+              : l.dreamAnalysisSaveFailedConnectionMessage,
+          isError: true,
+        );
+      } else {
+        setState(() {
+          _stage = _SaveStage.error;
+          _errorMessage = l.dreamAnalysisSaveErrorRetry;
+        });
+      }
       return;
     }
 
-    final savedDream = (createRes as Success<Dream>).value;
+    var savedDream = (createRes as Success<Dream>).value;
 
     // Persist aiAnalysis map if we have one
     if (aiAnalysisMap != null) {
+      final aiByLanguage = <String, dynamic>{localeCode: aiAnalysisMap};
       await repo.updateDream(
         userId: userId,
         dreamId: savedDream.id,
-        data: {'aiAnalysis': aiAnalysisMap},
+        data: {
+          'aiAnalysis': aiAnalysisMap,
+          'aiAnalysisByLanguage': aiByLanguage,
+          'aiCategory': aiCategory,
+          'aiSummary': aiSummary,
+        },
+      );
+
+      savedDream = savedDream.copyWith(
+        aiAnalysis: aiAnalysisMap,
+        aiAnalysisByLanguage: aiByLanguage,
       );
     }
 
@@ -193,19 +323,175 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
 
     if (!mounted) return;
     // Replace this screen so back returns to the dream list, not back here
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => DreamSavedStepScreen(dream: savedDream),
-      ),
-    );
+    if (withAi && aiAnalysisMap != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => DreamMorfeoResultScreen(
+            dream: savedDream,
+            aiAnalysis: aiAnalysisMap!,
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => DreamSavedStepScreen(dream: savedDream),
+        ),
+      );
+    }
   }
 
   void _setStage(_SaveStage stage, String label) {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _stage = stage;
         _statusLabel = label;
       });
+    }
+  }
+
+  Future<void> _rollbackUploadedAudio(List<String> audioUrls) async {
+    for (final url in audioUrls) {
+      await AudioService.instance.deleteAudio(audioUrl: url);
+    }
+  }
+
+  bool _isTranscriptionTooSmall(String? transcription) {
+    if (transcription == null) return true;
+    final normalized = transcription.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) return true;
+    final words = normalized
+        .split(' ')
+        .where((word) => word.trim().isNotEmpty)
+        .length;
+    return normalized.length < _minTranscriptionChars ||
+        words < _minTranscriptionWords;
+  }
+
+  bool _hasMeaningfulAnalysis(DreamAnalysis analysis) {
+    return analysis.summary.trim().length >= 20 ||
+        analysis.psychologicalNote.trim().length >= 20 ||
+        analysis.themes.isNotEmpty ||
+        analysis.emotions.isNotEmpty ||
+        analysis.category.trim().isNotEmpty ||
+        analysis.sentiment.trim().isNotEmpty;
+  }
+
+  DreamAnalysis _buildFallbackAnalysis({required bool lowQualityInput}) {
+    final isSpanish = Localizations.localeOf(
+      context,
+    ).languageCode.toLowerCase().startsWith('es');
+    final assistantName = AppLocalizations.of(context).welcomeMorpheusTitle;
+
+    if (isSpanish) {
+      return DreamAnalysis(
+        sentiment: 'neutral',
+        category: 'Neutral',
+        emotions: lowQualityInput
+            ? const ['confusion']
+            : const ['incertidumbre'],
+        characters: const ['sin datos claros'],
+        places: const ['no definido'],
+        themes: lowQualityInput
+            ? const ['contenido incoherente']
+            : const ['procesamiento emocional'],
+        psychologicalNote: lowQualityInput
+            ? 'El contenido parece insuficiente o incoherente para una lectura profunda. Prueba a describir acciones, emociones y contexto con más detalle para mejorar el análisis.'
+            : 'El relato no ofrece suficiente estructura para un análisis detallado. Aun así, puede reflejar una carga emocional difusa.',
+        summary: lowQualityInput
+            ? '$assistantName detectó texto con poca coherencia narrativa y devolvió una lectura básica.'
+            : '$assistantName devolvió un análisis básico porque la respuesta del modelo vino poco estructurada.',
+      );
+    }
+
+    return DreamAnalysis(
+      sentiment: 'neutral',
+      category: 'Neutral',
+      emotions: lowQualityInput ? const ['confusion'] : const ['uncertainty'],
+      characters: const ['no clear entities'],
+      places: const ['undefined setting'],
+      themes: lowQualityInput
+          ? const ['incoherent content']
+          : const ['emotional processing'],
+      psychologicalNote: lowQualityInput
+          ? 'The content appears insufficient or incoherent for a deep reading. Try adding actions, emotions, and context for better analysis quality.'
+          : 'The narrative is not structured enough for a detailed reading, but it may still reflect diffuse emotional load.',
+      summary: lowQualityInput
+          ? '$assistantName detected low-coherence text and returned a basic reading.'
+          : '$assistantName returned a basic analysis because the model response lacked structure.',
+    );
+  }
+
+  Future<void> _showMorfeoWarningDialog({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (ctx) => Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2230),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppColors.accentSecondary.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accentSecondary.withValues(alpha: 0.12),
+                blurRadius: 36,
+                spreadRadius: -8,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MorpheusOrb(size: 64),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accentSecondary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context).dreamAnalysisUnderstood,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _resetError() => setState(() {
@@ -233,9 +519,9 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
                 ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
-        title: const Text(
-          'Analizar sueño',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).dreamAnalysisTitle,
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -268,20 +554,38 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _MorfeoOrb(size: 80),
-          const SizedBox(height: AppSpacing.lg),
+          _isMorfeoFlow
+              ? const MorpheusOrb(size: 156)
+              : Container(
+                  width: 124,
+                  height: 124,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.accentPrimary.withValues(alpha: 0.15),
+                    border: Border.all(
+                      color: AppColors.accentPrimary.withValues(alpha: 0.35),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.save_rounded,
+                    color: AppColors.accentPrimary,
+                    size: 52,
+                  ),
+                ),
+          const SizedBox(height: AppSpacing.xl),
           Text(
             _statusLabel,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
           const SizedBox(
-            width: 200,
+            width: 260,
             child: LinearProgressIndicator(
               backgroundColor: AppColors.surfaceGlass,
               color: AppColors.accentSecondary,
@@ -293,9 +597,95 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
     );
   }
 
+  Future<void> _showSaveWarningDialog({
+    required String title,
+    required String message,
+    bool isError = false,
+  }) {
+    final accentColor = isError ? AppColors.error : AppColors.accentPrimary;
+    final foregroundColor = isError ? Colors.white : AppColors.bgPrimary;
+
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2230),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accentColor.withValues(alpha: 0.15),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.error,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: foregroundColor,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context).dreamAnalysisUnderstood,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Error ────────────────────────────────────────────────────────────────
 
   Widget _buildError() {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -307,7 +697,7 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            _errorMessage ?? 'Algo salió mal.',
+            _errorMessage ?? l.dreamAnalysisSomethingWentWrong,
             style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
             textAlign: TextAlign.center,
           ),
@@ -321,7 +711,7 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
               ),
               shape: const StadiumBorder(),
             ),
-            child: const Text('Volver a intentar'),
+            child: Text(l.dreamsListRetry),
           ),
         ],
       ),
@@ -331,143 +721,74 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
   // ── Main options ─────────────────────────────────────────────────────────
 
   Widget _buildOptions() {
+    final l = AppLocalizations.of(context);
     // Morfeo is always available via Cloud Functions — no key needed client-side.
     final hasAudio = widget.draft.localAudioPaths.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Dream snippet preview
-        _DreamSnippetCard(draft: widget.draft),
-        const SizedBox(height: AppSpacing.lg),
-
-        // ── Morfeo card ─────────────────────────────────────────────────
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.accentSecondary.withValues(alpha: 0.16),
-                AppColors.bgPrimary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactHeight = constraints.maxHeight < 760;
+        final verticalGap = isCompactHeight ? AppSpacing.lg : AppSpacing.xl;
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DreamSnippetCard(draft: widget.draft),
+                SizedBox(height: verticalGap),
+                _MorfeoInfoCard(hasAudio: hasAudio),
+                SizedBox(height: verticalGap),
+                FilledButton.icon(
+                  onPressed: _saveWithAnalysis,
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: Text(l.dreamAnalysisAnalyzeWithMorfeo),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accentSecondary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 56),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _saveWithoutAnalysis,
+                  icon: const Icon(Icons.save_outlined, size: 18),
+                  label: Text(l.dreamAnalysisSaveWithoutAnalysis),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accentPrimary,
+                    side: BorderSide(
+                      color: AppColors.accentPrimary.withValues(alpha: 0.8),
+                      width: 1.4,
+                    ),
+                    minimumSize: const Size(double.infinity, 56),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'TU PRIVACIDAD ES NUESTRA PRIORIDAD',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.55),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.8,
+                  ),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(
-              color: AppColors.accentSecondary.withValues(alpha: 0.35),
-            ),
           ),
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _MorfeoOrb(size: 36),
-                  const SizedBox(width: AppSpacing.xs),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Morfeo',
-                        style: TextStyle(
-                          color: AppColors.accentSecondary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        'Intérprete de sueños IA',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                hasAudio
-                    ? 'Transcribiré tus grabaciones y analizaré las emociones, '
-                          'lugares y temas clave que aparecen en tu sueño.'
-                    : 'Analizaré las emociones, lugares y temas clave '
-                          'que aparecen en tu sueño y lo resumiré para ti.',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13.5,
-                  height: 1.55,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton.icon(
-                onPressed: _saveWithAnalysis,
-                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-                label: const Text('Analizar con Morfeo'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.accentSecondary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 46),
-                  shape: const StadiumBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // ── Skip button ─────────────────────────────────────────────────
-        OutlinedButton.icon(
-          onPressed: _saveWithoutAnalysis,
-          icon: const Icon(Icons.save_outlined, size: 16),
-          label: const Text('Guardar sin análisis'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textSecondary,
-            side: BorderSide(color: AppColors.borderSubtle),
-            minimumSize: const Size(double.infinity, 46),
-            shape: const StadiumBorder(),
-          ),
-        ),
-        const Spacer(),
-      ],
-    );
-  }
-}
-
-// ── Morfeo glowing orb ────────────────────────────────────────────────────
-
-class _MorfeoOrb extends StatelessWidget {
-  const _MorfeoOrb({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            AppColors.accentSecondary.withValues(alpha: 0.6),
-            AppColors.accentSecondary.withValues(alpha: 0.05),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentSecondary.withValues(alpha: 0.35),
-            blurRadius: size * 0.35,
-            spreadRadius: size * 0.05,
-          ),
-        ],
-      ),
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        color: Colors.white,
-        size: size * 0.45,
-      ),
+        );
+      },
     );
   }
 }
@@ -481,48 +802,72 @@ class _DreamSnippetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final dreamBody = draft.text.trim();
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceGlass,
+            AppColors.accentPrimary.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.accentPrimary.withValues(alpha: 0.32),
+        ),
       ),
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            draft.title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (draft.text.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
+          if (draft.title.trim().isNotEmpty) ...[
             Text(
-              draft.text.trim(),
+              draft.title.trim(),
+              style: TextStyle(
+                color: AppColors.textSecondary.withValues(alpha: 0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+          ],
+          if (dreamBody.isNotEmpty)
+            Text(
+              '"$dreamBody"',
+              style: const TextStyle(
+                fontFamily: 'Lora',
+                fontStyle: FontStyle.italic,
+                color: AppColors.accentPrimary,
+                fontSize: 15,
+                height: 1.7,
+              ),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+            )
+          else
+            Text(
+              l.dreamAnalysisMissingContentTitle,
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
-                height: 1.5,
               ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
             ),
-          ],
           if (draft.localAudioPaths.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 const Icon(Icons.mic, color: AppColors.accentPrimary, size: 14),
                 const SizedBox(width: 4),
                 Text(
-                  '${draft.localAudioPaths.length} '
-                  'grabación${draft.localAudioPaths.length > 1 ? 'es' : ''}',
+                  l.dreamAnalysisAudioRecordingsCount(
+                    draft.localAudioPaths.length,
+                  ),
                   style: const TextStyle(
                     color: AppColors.accentPrimary,
                     fontSize: 12,
@@ -531,6 +876,65 @@ class _DreamSnippetCard extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MorfeoInfoCard extends StatelessWidget {
+  const _MorfeoInfoCard({required this.hasAudio});
+
+  final bool hasAudio;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceGlass,
+            AppColors.accentSecondary.withValues(alpha: 0.12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.accentSecondary.withValues(alpha: 0.35),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
+      child: Column(
+        children: [
+          const MorpheusOrb(size: 146),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            l.welcomeMorpheusTitle,
+            style: const TextStyle(
+              color: AppColors.accentPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            hasAudio
+                ? l.dreamAnalysisCardBodyWithAudio
+                : l.dreamAnalysisCardBodyWithoutAudio,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+              height: 1.6,
+            ),
+          ),
         ],
       ),
     );

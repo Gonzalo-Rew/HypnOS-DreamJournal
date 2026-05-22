@@ -56,7 +56,7 @@ service cloud.firestore {
       return data.title is string
              && data.title.size() > 0
              && data.text is string
-             && data.text.size() > 0
+             && (data.text.size() > 0 || data.hasAudio == true)
              && data.dreamDate is timestamp
              && data.createdAt is timestamp
              && data.updatedAt is timestamp
@@ -149,20 +149,73 @@ service cloud.firestore {
     // ── Social: follows ──────────────────────────────────────────────────────
     // Document ID format: "{followerId}_{followingId}"
     match /follows/{docId} {
+      function isValidFollowCreateData() {
+        return request.resource.data.keys().hasAll([
+                 'followerId',
+                 'followingId',
+                 'createdAt'
+               ])
+               && request.resource.data.followerId is string
+               && request.resource.data.followingId is string
+               && request.resource.data.followerId.size() > 0
+               && request.resource.data.followingId.size() > 0
+               && request.resource.data.createdAt is timestamp
+               && request.resource.data.followerId != request.resource.data.followingId
+               && docId == request.resource.data.followerId + '_' + request.resource.data.followingId;
+      }
+
+      function canAcceptFromPendingRequest() {
+        let followerId = request.resource.data.followerId;
+        let followingId = request.resource.data.followingId;
+        let reqPath = /databases/$(database)/documents/followRequests/$(followerId + '_' + followingId);
+
+        return request.auth.uid == followingId
+               && exists(reqPath)
+               && get(reqPath).data.requesterId == followerId
+               && get(reqPath).data.targetId == followingId
+               && (!('status' in get(reqPath).data) || get(reqPath).data.status == 'pending');
+      }
+
       // Any authenticated user can read follow relationships
       allow read: if isSignedIn();
-      // Only the follower can create/delete their own follow
-      allow create, delete: if isSignedIn()
-                             && request.resource.data.followerId == request.auth.uid;
+
+      // Create allowed if:
+      // 1) follower creates their own follow directly, OR
+      // 2) target accepts an existing pending request from follower.
+      allow create: if isSignedIn()
+                    && isValidFollowCreateData()
+                    && (
+                      request.resource.data.followerId == request.auth.uid
+                      || canAcceptFromPendingRequest()
+                    );
+
+        // Keep least privilege on delete (either side can remove relation)
+      allow delete: if isSignedIn()
+              && (resource.data.followerId == request.auth.uid
+                || resource.data.followingId == request.auth.uid);
     }
 
     // ── Social: follow requests ───────────────────────────────────────────────
     // Document ID format: "{requesterId}_{targetId}"
     match /followRequests/{docId} {
+      function isFollowRequestParticipantByFields() {
+        return (resource.data.requesterId == request.auth.uid
+                || resource.data.targetId == request.auth.uid
+                || resource.data.senderId == request.auth.uid
+                || resource.data.receiverId == request.auth.uid);
+      }
+
+      // Backward-compatible fallback for legacy docs that may miss participant
+      // fields but still use the standard "{requesterId}_{targetId}" doc id.
+      function isFollowRequestParticipantByDocId() {
+        return docId.matches('^' + request.auth.uid + '_.*')
+               || docId.matches('.*_' + request.auth.uid + '$');
+      }
+
       // Individual document read: only the requester or the target can read
       allow get: if isSignedIn()
-                 && (resource.data.requesterId == request.auth.uid
-                     || resource.data.targetId == request.auth.uid);
+                 && (isFollowRequestParticipantByFields()
+                     || isFollowRequestParticipantByDocId());
       // Collection queries (e.g. "where targetId == uid"): any signed-in user
       // resource.data is not available at query-evaluation time, so we allow
       // list for signed-in users and rely on client-side query constraints.
@@ -172,8 +225,8 @@ service cloud.firestore {
                     && request.resource.data.requesterId == request.auth.uid;
       // Either party can delete (requester cancels, target accepts/declines)
       allow delete: if isSignedIn()
-                    && (resource.data.requesterId == request.auth.uid
-                        || resource.data.targetId == request.auth.uid);
+              && (isFollowRequestParticipantByFields()
+                || isFollowRequestParticipantByDocId());
     }
 
     // ── Social: public dreams ─────────────────────────────────────────────────

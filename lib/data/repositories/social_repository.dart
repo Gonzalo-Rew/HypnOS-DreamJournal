@@ -49,6 +49,12 @@ abstract class SocialRepository {
     required String targetUserId,
   });
 
+  /// Remove [followerUserId] from [currentUserId]'s followers list.
+  Future<Result<void>> removeFollower({
+    required String currentUserId,
+    required String followerUserId,
+  });
+
   /// Stream that emits true when [currentUserId] follows [targetUserId].
   Stream<bool> isFollowing({
     required String currentUserId,
@@ -200,24 +206,13 @@ class SocialRepositoryImpl implements SocialRepository {
   }) async {
     try {
       final docId = _followDocId(currentUserId, targetUserId);
-      final batch = _firestore.batch();
-
-      // Create follow document
-      batch.set(_firestore.collection('follows').doc(docId), {
+      // Only write the follow document. Updating the target user's counters
+      // from client is blocked by Firestore rules (owner-only updates).
+      await _firestore.collection('follows').doc(docId).set({
         'followerId': currentUserId,
         'followingId': targetUserId,
         'createdAt': FieldValue.serverTimestamp(),
       });
-
-      // Increment counters
-      batch.update(_firestore.collection('users').doc(currentUserId), {
-        'followingCount': FieldValue.increment(1),
-      });
-      batch.update(_firestore.collection('users').doc(targetUserId), {
-        'followersCount': FieldValue.increment(1),
-      });
-
-      await batch.commit();
       return const Success(null);
     } catch (e) {
       return Failure(Exception(e.toString()));
@@ -231,18 +226,21 @@ class SocialRepositoryImpl implements SocialRepository {
   }) async {
     try {
       final docId = _followDocId(currentUserId, targetUserId);
-      final batch = _firestore.batch();
+      await _firestore.collection('follows').doc(docId).delete();
+      return const Success(null);
+    } catch (e) {
+      return Failure(Exception(e.toString()));
+    }
+  }
 
-      batch.delete(_firestore.collection('follows').doc(docId));
-
-      batch.update(_firestore.collection('users').doc(currentUserId), {
-        'followingCount': FieldValue.increment(-1),
-      });
-      batch.update(_firestore.collection('users').doc(targetUserId), {
-        'followersCount': FieldValue.increment(-1),
-      });
-
-      await batch.commit();
+  @override
+  Future<Result<void>> removeFollower({
+    required String currentUserId,
+    required String followerUserId,
+  }) async {
+    try {
+      final docId = _followDocId(followerUserId, currentUserId);
+      await _firestore.collection('follows').doc(docId).delete();
       return const Success(null);
     } catch (e) {
       return Failure(Exception(e.toString()));
@@ -268,21 +266,12 @@ class SocialRepositoryImpl implements SocialRepository {
     required String dreamId,
   }) async {
     try {
-      final batch = _firestore.batch();
-
-      batch.set(
-        _firestore
-            .collection('publicDreams')
-            .doc(dreamId)
-            .collection('likes')
-            .doc(userId),
-        {'userId': userId, 'createdAt': FieldValue.serverTimestamp()},
-      );
-      batch.update(_firestore.collection('publicDreams').doc(dreamId), {
-        'likesCount': FieldValue.increment(1),
-      });
-
-      await batch.commit();
+      await _firestore
+          .collection('publicDreams')
+          .doc(dreamId)
+          .collection('likes')
+          .doc(userId)
+          .set({'userId': userId, 'createdAt': FieldValue.serverTimestamp()});
       return const Success(null);
     } catch (e) {
       return Failure(Exception(e.toString()));
@@ -295,20 +284,12 @@ class SocialRepositoryImpl implements SocialRepository {
     required String dreamId,
   }) async {
     try {
-      final batch = _firestore.batch();
-
-      batch.delete(
-        _firestore
-            .collection('publicDreams')
-            .doc(dreamId)
-            .collection('likes')
-            .doc(userId),
-      );
-      batch.update(_firestore.collection('publicDreams').doc(dreamId), {
-        'likesCount': FieldValue.increment(-1),
-      });
-
-      await batch.commit();
+      await _firestore
+          .collection('publicDreams')
+          .doc(dreamId)
+          .collection('likes')
+          .doc(userId)
+          .delete();
       return const Success(null);
     } catch (e) {
       return Failure(Exception(e.toString()));
@@ -535,14 +516,6 @@ class SocialRepositoryImpl implements SocialRepository {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Update counters
-      batch.update(_firestore.collection('users').doc(requesterId), {
-        'followingCount': FieldValue.increment(1),
-      });
-      batch.update(_firestore.collection('users').doc(targetUserId), {
-        'followersCount': FieldValue.increment(1),
-      });
-
       // Remove the request
       batch.delete(_firestore.collection('followRequests').doc(requestId));
 
@@ -568,14 +541,21 @@ class SocialRepositoryImpl implements SocialRepository {
     return _firestore
         .collection('followRequests')
         .where('targetId', isEqualTo: userId)
-        .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((d) => FollowRequest.fromFirestore(d.data(), d.id))
-              .toList(),
-        );
+        .map((snap) {
+          final requests = <FollowRequest>[];
+
+          for (final doc in snap.docs) {
+            final data = doc.data();
+            final status = data['status'] as String?;
+            if ((status ?? 'pending') == 'pending') {
+              requests.add(FollowRequest.fromFirestore(data, doc.id));
+            }
+          }
+
+          requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return requests;
+        });
   }
 
   @override
@@ -583,22 +563,43 @@ class SocialRepositoryImpl implements SocialRepository {
     required String currentUserId,
     required String targetUserId,
   }) {
-    // Combine follow doc + request doc into a single state string
     final followDocId = _followDocId(currentUserId, targetUserId);
     final requestDocId = _followRequestDocId(currentUserId, targetUserId);
 
-    return _firestore
-        .collection('follows')
-        .doc(followDocId)
-        .snapshots()
-        .asyncMap((followSnap) async {
-          if (followSnap.exists) return 'following';
-          final reqSnap = await _firestore
-              .collection('followRequests')
-              .doc(requestDocId)
-              .get();
-          return reqSnap.exists ? 'pending' : 'none';
-        });
+    return Stream<String>.multi((controller) {
+      var isFollowing = false;
+      var isPending = false;
+
+      void emitState() {
+        controller.add(
+          isFollowing ? 'following' : (isPending ? 'pending' : 'none'),
+        );
+      }
+
+      final followSub = _firestore
+          .collection('follows')
+          .doc(followDocId)
+          .snapshots()
+          .listen((followSnap) {
+            isFollowing = followSnap.exists;
+            emitState();
+          }, onError: controller.addError);
+
+      final requestSub = _firestore
+          .collection('followRequests')
+          .doc(requestDocId)
+          .snapshots()
+          .listen((reqSnap) {
+            final status = reqSnap.data()?['status'] as String?;
+            isPending = reqSnap.exists && (status ?? 'pending') == 'pending';
+            emitState();
+          }, onError: controller.addError);
+
+      controller.onCancel = () async {
+        await followSub.cancel();
+        await requestSub.cancel();
+      };
+    });
   }
 
   @override
@@ -606,9 +607,13 @@ class SocialRepositoryImpl implements SocialRepository {
     return _firestore
         .collection('followRequests')
         .where('targetId', isEqualTo: userId)
-        .where('status', isEqualTo: 'pending')
         .snapshots()
-        .map((snap) => snap.size);
+        .map(
+          (snap) => snap.docs.where((d) {
+            final status = d.data()['status'] as String?;
+            return (status ?? 'pending') == 'pending';
+          }).length,
+        );
   }
 
   @override

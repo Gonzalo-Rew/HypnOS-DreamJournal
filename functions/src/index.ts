@@ -1,122 +1,191 @@
-import { onRequest } from 'firebase-functions/v2/https';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
+import {
+  onDocumentCreated,
+  onDocumentDeleted,
+} from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as admin from 'firebase-admin';
 
-// Gemini API key stored in Firebase Secret Manager.
-// Set it once with: firebase functions:secrets:set GEMINI_API_KEY
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
-
 const MODEL_NAME = 'gemini-2.5-flash';
+const BACKFILL_TOKEN = 'backfill-20260521';
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-const ANALYSIS_PROMPT_TEMPLATE = `
-You are a compassionate dream analyst. Analyze the following dream entry and respond in EXACTLY this format (no extra text):
+const db = admin.firestore();
 
-SENTIMENT: [positive/neutral/negative/mixed]
-CATEGORY: [one of: Adventure, Nightmare, Fantasy, Romantic, Surreal, Anxiety, Nostalgic, Spiritual, Neutral]
-EMOTIONS: [comma-separated list of up to 5 emotions detected, e.g.: joy, fear, confusion]
-CHARACTERS: [comma-separated list of up to 5 characters/entities, e.g.: unknown figure, childhood friend]
-PLACES: [comma-separated list of up to 3 places, e.g.: forest, old house]
-THEMES: [comma-separated list of up to 4 recurring themes, e.g.: pursuit, transformation, loss]
-PSYCHOLOGICAL_NOTE: [2-3 sentences of empathetic psychological insight, no diagnosis]
-SUMMARY: [1-2 sentence compassionate summary of the dream]
+const ANALYSIS_PROMPT_TEMPLATE = `
+You are Morfeo, a compassionate dream analyst.
+Analyze the following dream and respond with valid JSON only using exactly these keys:
+sentiment, category, emotions, characters, places, themes, psychologicalNote, summary.
+
+Rules:
+- sentiment must be one of: positive, neutral, negative, mixed
+- category must be one of: Adventure, Nightmare, Fantasy, Romantic, Surreal, Anxiety, Nostalgic, Spiritual, Neutral
+- emotions: array of up to 5 short strings
+- characters: array of up to 5 short strings
+- places: array of up to 5 short strings
+- themes: array of up to 5 short strings
+- psychologicalNote: 2-3 empathetic sentences, no diagnosis
+- summary: 1-2 compassionate sentences
+- Output language: {responseLanguage}
 
 Dream title: {title}
 Dream text: {text}
 Mood score (1-5): {moodScore}
-Context: {context}
+Context notes: {context}
 `.trim();
 
-// Validates the Firebase Auth Bearer token and returns the uid, or null.
-async function verifyAuth(authHeader: string | undefined): Promise<string | null> {
-  if (!authHeader?.startsWith('Bearer ')) return null;
+type AnalysisPayload = {
+  title?: string;
+  text?: string;
+  moodScore?: number;
+  contextNotes?: string;
+  language?: string;
+};
+
+function resolveResponseLanguage(language?: string): string {
+  return (language ?? '').toLowerCase().startsWith('es') ? 'Spanish' : 'English';
+}
+
+function buildFallbackAnalysisText(responseLanguage: string): string {
+  const isSpanish = responseLanguage === 'Spanish';
+  return JSON.stringify({
+    sentiment: 'neutral',
+    category: 'Neutral',
+    emotions: isSpanish ? ['reflexion'] : ['reflection'],
+    characters: isSpanish ? ['sonador'] : ['dreamer'],
+    places: isSpanish ? ['escenario onirico'] : ['dream setting'],
+    themes: isSpanish ? ['procesamiento'] : ['processing'],
+    psychologicalNote: isSpanish
+      ? 'Morfeo detecta un relato breve o insuficiente para una lectura profunda, pero aun asi percibe una necesidad de observacion tranquila y sin juicio.'
+      : 'Morfeo detects a brief or insufficient dream report for a deep reading, but still senses a need for calm, non-judgmental observation.',
+    summary: isSpanish
+      ? 'Morfeo necesita mas detalles para ofrecer un analisis mas preciso.'
+      : 'Morfeo needs more detail to provide a more precise analysis.',
+  });
+}
+
+function coerceAnalysisText(rawText: string, responseLanguage: string): string {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    return buildFallbackAnalysisText(responseLanguage);
+  }
+
   try {
-    const decoded = await admin.auth().verifyIdToken(authHeader.slice(7));
-    return decoded.uid;
-  } catch {
-    return null;
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    return JSON.stringify({
+      sentiment: String(parsed['sentiment'] ?? 'neutral'),
+      category: String(parsed['category'] ?? 'Neutral'),
+      emotions: Array.isArray(parsed['emotions']) ? parsed['emotions'] : [],
+      characters: Array.isArray(parsed['characters']) ? parsed['characters'] : [],
+      places: Array.isArray(parsed['places']) ? parsed['places'] : [],
+      themes: Array.isArray(parsed['themes']) ? parsed['themes'] : [],
+      psychologicalNote: String(parsed['psychologicalNote'] ?? ''),
+      summary: String(parsed['summary'] ?? ''),
+    });
+  } catch (_) {
+    return buildFallbackAnalysisText(responseLanguage);
   }
 }
 
-// ── analyzeDream ─────────────────────────────────────────────────────────────
-// HTTP function: analyses a dream text with Gemini.
-// Auth: Firebase ID token in Authorization: Bearer header.
-export const analyzeDream = onRequest(
-  { secrets: [geminiApiKey], region: 'us-central1', invoker: 'public', cors: true },
-  async (req, res) => {
-    const uid = await verifyAuth(req.headers.authorization);
-    if (!uid) {
-      res.status(401).json({ error: 'Unauthorized' });
+async function runGeminiPrompt(prompt: string): Promise<string> {
+  const genAI = new GoogleGenerativeAI(geminiApiKey.value());
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 768 },
+  });
+
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
+async function applyFollowCounterDelta(
+  followerId: string,
+  followingId: string,
+  delta: number,
+): Promise<void> {
+  if (!followerId || !followingId || followerId === followingId) {
+    return;
+  }
+
+  await db.runTransaction(async (tx) => {
+    const followerRef = db.collection('users').doc(followerId);
+    const followingRef = db.collection('users').doc(followingId);
+
+    const [followerSnap, followingSnap] = await Promise.all([
+      tx.get(followerRef),
+      tx.get(followingRef),
+    ]);
+
+    if (!followerSnap.exists || !followingSnap.exists) {
       return;
     }
 
-    const { title, text, moodScore, contextNotes } = req.body as {
-      title?: string;
-      text?: string;
-      moodScore?: number;
-      contextNotes?: string;
-    };
+    tx.update(followerRef, {
+      followingCount: admin.firestore.FieldValue.increment(delta),
+    });
+    tx.update(followingRef, {
+      followersCount: admin.firestore.FieldValue.increment(delta),
+    });
+  });
+}
 
-    if (!text?.trim()) {
-      res.status(400).json({ error: 'Dream text is required.' });
-      return;
+export const analyzeDream = onCall(
+  { secrets: [geminiApiKey], region: 'us-central1' },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Unauthorized');
+    }
+
+    const payload = (request.data ?? {}) as AnalysisPayload;
+    const title = payload.title?.trim() ?? '';
+    const text = payload.text?.trim() ?? '';
+    const responseLanguage = resolveResponseLanguage(payload.language);
+
+    if (!text) {
+      return {
+        analysisText: buildFallbackAnalysisText(responseLanguage),
+      };
     }
 
     const prompt = ANALYSIS_PROMPT_TEMPLATE
-      .replace('{title}', title ?? '')
-      .replace('{text}', text.trim())
-      .replace('{moodScore}', moodScore?.toString() ?? 'not specified')
-      .replace('{context}', contextNotes ?? 'none');
+      .replace('{responseLanguage}', responseLanguage)
+      .replace('{title}', title)
+      .replace('{text}', text)
+      .replace('{moodScore}', payload.moodScore?.toString() ?? 'not specified')
+      .replace('{context}', payload.contextNotes?.trim() ?? 'none');
 
     try {
-      const genAI = new GoogleGenerativeAI(geminiApiKey.value());
-      const model = genAI.getGenerativeModel({
-        model: MODEL_NAME,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
-      });
-
-      const result = await model.generateContent(prompt);
-      const analysisText = result.response.text();
-
-      if (!analysisText) {
-        res.status(500).json({ error: 'Gemini returned an empty response.' });
-        return;
-      }
-
-      res.json({ analysisText });
+      const rawText = await runGeminiPrompt(prompt);
+      return {
+        analysisText: coerceAnalysisText(rawText, responseLanguage),
+      };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('analyzeDream Gemini error:', msg);
-      res.status(500).json({ error: `Gemini error: ${msg}` });
+      throw new HttpsError('internal', `Gemini error: ${msg}`);
     }
   },
 );
 
-// ── transcribeAudio ───────────────────────────────────────────────────────────
-// HTTP function: transcribes base64-encoded audio with Gemini multimodal.
-// Auth: Firebase ID token in Authorization: Bearer header.
-export const transcribeAudio = onRequest(
-  { secrets: [geminiApiKey], region: 'us-central1', invoker: 'public', cors: true },
-  async (req, res) => {
-    const uid = await verifyAuth(req.headers.authorization);
-    if (!uid) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
+export const transcribeAudio = onCall(
+  { secrets: [geminiApiKey], region: 'us-central1' },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Unauthorized');
     }
 
-    const { audioBase64, mimeType } = req.body as {
+    const payload = (request.data ?? {}) as {
       audioBase64?: string;
       mimeType?: string;
     };
 
-    if (!audioBase64) {
-      res.status(400).json({ error: 'audioBase64 is required.' });
-      return;
+    if (!payload.audioBase64) {
+      throw new HttpsError('invalid-argument', 'audioBase64 is required.');
     }
 
     try {
@@ -124,35 +193,32 @@ export const transcribeAudio = onRequest(
       const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
       const result = await model.generateContent([
-        'Transcribe the following audio recording of a person describing their dream. '
-        + 'Output only the transcription text, nothing else.',
+        'Transcribe the following audio recording of a person describing their dream. Output only the transcription text, nothing else.',
         {
           inlineData: {
-            data: audioBase64,
-            mimeType: mimeType ?? 'audio/m4a',
+            data: payload.audioBase64,
+            mimeType: payload.mimeType ?? 'audio/m4a',
           },
         },
       ]);
 
-      const transcription = result.response.text();
+      const transcription = result.response.text().trim();
       if (!transcription) {
-        res.status(500).json({ error: 'Transcription returned an empty result.' });
-        return;
+        throw new HttpsError('internal', 'Transcription returned an empty result.');
       }
 
-      res.json({ transcription });
+      return { transcription };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('transcribeAudio Gemini error:', msg);
-      res.status(500).json({ error: `Gemini error: ${msg}` });
+      if (err instanceof HttpsError) {
+        throw err;
+      }
+      throw new HttpsError('internal', `Gemini error: ${msg}`);
     }
   },
 );
 
-// ── notifyFollowerOnDreamPublish ──────────────────────────────────────────────
-// Firestore trigger: fires when a new document is created in publicDreams.
-// Reads the author's followers and sends FCM push notifications to those who
-// have notifyFollowingDreams = true and have a valid fcmToken.
 export const notifyFollowerOnDreamPublish = onDocumentCreated(
   { document: 'publicDreams/{dreamId}', region: 'us-central1' },
   async (event) => {
@@ -160,21 +226,17 @@ export const notifyFollowerOnDreamPublish = onDocumentCreated(
     if (!dreamData) return;
 
     const authorId: string = dreamData['userId'] ?? '';
-    const dreamTitle: string = dreamData['title'] ?? 'Un nuevo sueño';
+    const dreamTitle: string = dreamData['title'] ?? 'Un nuevo sueno';
 
     if (!authorId) {
       console.warn('notifyFollowerOnDreamPublish: missing userId in dream doc');
       return;
     }
 
-    const db = admin.firestore();
     const fcm = admin.messaging();
-
-    // 1. Get the author's display name
     const authorSnap = await db.collection('users').doc(authorId).get();
     const authorName: string = authorSnap.data()?.['displayName'] ?? 'Alguien';
 
-    // 2. Get all followers of the author (followingId == authorId)
     const followsSnap = await db
       .collection('follows')
       .where('followingId', '==', authorId)
@@ -182,9 +244,7 @@ export const notifyFollowerOnDreamPublish = onDocumentCreated(
 
     if (followsSnap.empty) return;
 
-    const followerIds = followsSnap.docs.map((d) => d.data()['followerId'] as string);
-
-    // 3. For each follower, check their notification preference and FCM token
+    const followerIds = followsSnap.docs.map((doc) => doc.data()['followerId'] as string);
     const tokens: string[] = [];
 
     await Promise.all(
@@ -194,9 +254,8 @@ export const notifyFollowerOnDreamPublish = onDocumentCreated(
         const followerData = followerSnap.data();
         if (!followerData) return;
 
-        const wantsNotif: boolean = followerData['notifyFollowingDreams'] !== false;
-        const token: string | undefined = followerData['fcmToken'];
-
+        const wantsNotif = followerData['notifyFollowingDreams'] !== false;
+        const token = followerData['fcmToken'] as string | undefined;
         if (wantsNotif && token) {
           tokens.push(token);
         }
@@ -205,15 +264,14 @@ export const notifyFollowerOnDreamPublish = onDocumentCreated(
 
     if (tokens.length === 0) return;
 
-    // 4. Send FCM notifications in batches of 500
     const batchSize = 500;
-    for (let i = 0; i < tokens.length; i += batchSize) {
-      const batch = tokens.slice(i, i + batchSize);
+    for (let index = 0; index < tokens.length; index += batchSize) {
+      const batch = tokens.slice(index, index + batchSize);
       try {
         const response = await fcm.sendEachForMulticast({
           tokens: batch,
           notification: {
-            title: `${authorName} publicó un sueño`,
+            title: `${authorName} publico un sueno`,
             body: dreamTitle,
           },
           data: {
@@ -234,13 +292,120 @@ export const notifyFollowerOnDreamPublish = onDocumentCreated(
           },
         });
 
-        const failed = response.responses.filter((r) => !r.success).length;
-        if (failed > 0) {
-          console.warn(`notifyFollowerOnDreamPublish: ${failed} messages failed in batch`);
+        const failedCount = response.responses.filter((item) => !item.success).length;
+        if (failedCount > 0) {
+          console.warn(`notifyFollowerOnDreamPublish: ${failedCount} messages failed in batch`);
         }
       } catch (err) {
         console.error('notifyFollowerOnDreamPublish FCM error:', err);
       }
+    }
+  },
+);
+
+export const incrementFollowCounters = onDocumentCreated(
+  { document: 'follows/{followId}', region: 'us-central1' },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    await applyFollowCounterDelta(
+      data['followerId'] ?? '',
+      data['followingId'] ?? '',
+      1,
+    );
+  },
+);
+
+export const decrementFollowCounters = onDocumentDeleted(
+  { document: 'follows/{followId}', region: 'us-central1' },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    await applyFollowCounterDelta(
+      data['followerId'] ?? '',
+      data['followingId'] ?? '',
+      -1,
+    );
+  },
+);
+
+export const backfillFollowCounters = onRequest(
+  { region: 'us-central1', invoker: 'public', cors: true },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed. Use POST.' });
+      return;
+    }
+
+    const token = req.header('x-backfill-token') ?? req.query['token'];
+    if (token !== BACKFILL_TOKEN) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    try {
+      const usersSnap = await db.collection('users').get();
+      const counters = new Map<string, { followers: number; following: number }>();
+
+      for (const userDoc of usersSnap.docs) {
+        counters.set(userDoc.id, { followers: 0, following: 0 });
+      }
+
+      const followsSnap = await db.collection('follows').get();
+      for (const followDoc of followsSnap.docs) {
+        const data = followDoc.data();
+        const followerId = (data['followerId'] as string | undefined) ?? '';
+        const followingId = (data['followingId'] as string | undefined) ?? '';
+
+        if (followerId && followerId !== followingId) {
+          const follower = counters.get(followerId) ?? { followers: 0, following: 0 };
+          follower.following += 1;
+          counters.set(followerId, follower);
+        }
+
+        if (followingId && followerId !== followingId) {
+          const following = counters.get(followingId) ?? { followers: 0, following: 0 };
+          following.followers += 1;
+          counters.set(followingId, following);
+        }
+      }
+
+      let batch = db.batch();
+      let ops = 0;
+      let updatedUsers = 0;
+
+      for (const [userId, count] of counters) {
+        const userRef = db.collection('users').doc(userId);
+        batch.update(userRef, {
+          followersCount: count.followers,
+          followingCount: count.following,
+        });
+        ops += 1;
+        updatedUsers += 1;
+
+        if (ops === 500) {
+          await batch.commit();
+          batch = db.batch();
+          ops = 0;
+        }
+      }
+
+      if (ops > 0) {
+        await batch.commit();
+      }
+
+      res.json({
+        ok: true,
+        usersProcessed: usersSnap.size,
+        followsProcessed: followsSnap.size,
+        usersUpdated: updatedUsers,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('backfillFollowCounters error:', msg);
+      res.status(500).json({ error: msg });
     }
   },
 );

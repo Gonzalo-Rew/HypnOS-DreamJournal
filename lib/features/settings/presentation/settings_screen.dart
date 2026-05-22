@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
+import 'package:hypnos_dreamjournal/core/providers/locale_provider.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
 import 'package:hypnos_dreamjournal/features/settings/presentation/account_security_screen.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/edit_profile_screen.dart';
@@ -14,6 +17,10 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final localeProvider = context.watch<LocaleProvider>();
+    final currentCode = localeProvider.locale.languageCode;
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
@@ -39,8 +46,8 @@ class SettingsScreen extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                  const Text(
-                    'Ajustes',
+                  Text(
+                    l.settingsTitle,
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
@@ -58,14 +65,14 @@ class SettingsScreen extends StatelessWidget {
                   vertical: AppSpacing.xs,
                 ),
                 children: [
-                  _SectionHeader(label: 'PERFIL Y CUENTA'),
+                  _SectionHeader(label: l.settingsSectionAccount),
                   GlassCard(
                     padding: EdgeInsets.zero,
                     child: Column(
                       children: [
                         _NavTile(
                           icon: Icons.person_outline,
-                          label: 'Editar perfil',
+                          label: l.settingsEditProfile,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -76,7 +83,7 @@ class SettingsScreen extends StatelessWidget {
                         _settingsDivider(),
                         _NavTile(
                           icon: Icons.shield_outlined,
-                          label: 'Cuenta y seguridad',
+                          label: l.settingsAccountSecurity,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -87,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
                         _settingsDivider(),
                         _NavTile(
                           icon: Icons.notifications_outlined,
-                          label: 'Notificaciones',
+                          label: l.settingsNotifications,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -99,17 +106,17 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  _SectionHeader(label: 'PREFERENCIAS'),
+                  _SectionHeader(label: l.settingsSectionPreferences),
                   GlassCard(
                     padding: EdgeInsets.zero,
                     child: _NavTile(
                       icon: Icons.language,
-                      label: 'Idioma',
-                      onTap: () => _showLanguageSheet(context),
+                      label: l.profileLanguage,
+                      onTap: () => _showLanguageSheet(context, currentCode),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  _SectionHeader(label: 'INTELIGENCIA ARTIFICIAL'),
+                  _SectionHeader(label: l.settingsSectionAi),
                   GlassCard(
                     padding: EdgeInsets.zero,
                     child: ListTile(
@@ -118,15 +125,15 @@ class SettingsScreen extends StatelessWidget {
                         color: AppColors.accentSecondary,
                         size: 20,
                       ),
-                      title: const Text(
-                        'Morfeo – Análisis con IA',
+                      title: Text(
+                        l.settingsAiTitle,
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,
                         ),
                       ),
-                      subtitle: const Text(
-                        'Activo · gestionado por el servidor',
+                      subtitle: Text(
+                        l.settingsAiSubtitle,
                         style: TextStyle(
                           color: AppColors.accentSecondary,
                           fontSize: 11,
@@ -140,14 +147,14 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  _SectionHeader(label: 'LEGAL'),
+                  _SectionHeader(label: l.settingsSectionLegal),
                   GlassCard(
                     padding: EdgeInsets.zero,
                     child: Column(
                       children: [
                         _NavTile(
                           icon: Icons.description_outlined,
-                          label: 'Política de privacidad',
+                          label: l.settingsPrivacyPolicy,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -159,7 +166,7 @@ class SettingsScreen extends StatelessWidget {
                         _settingsDivider(),
                         _NavTile(
                           icon: Icons.menu_book_outlined,
-                          label: 'Términos y condiciones',
+                          label: l.settingsTermsAndConditions,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -183,7 +190,8 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showLanguageSheet(BuildContext context) {
+  void _showLanguageSheet(BuildContext context, String currentCode) {
+    final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E2230),
@@ -200,8 +208,8 @@ class SettingsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Idioma',
+              Text(
+                l.profileLanguage,
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 18,
@@ -211,19 +219,31 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               ListTile(
                 leading: const Text('🇬🇧', style: TextStyle(fontSize: 22)),
-                title: const Text(
-                  'English',
+                title: Text(
+                  l.languageEnglish,
                   style: TextStyle(color: AppColors.textPrimary),
                 ),
-                onTap: () => Navigator.pop(context),
+                trailing: currentCode == 'en'
+                    ? const Icon(Icons.check, color: AppColors.accentPrimary)
+                    : null,
+                onTap: () {
+                  context.read<LocaleProvider>().setLocale(const Locale('en'));
+                  Navigator.pop(context);
+                },
               ),
               ListTile(
                 leading: const Text('🇪🇸', style: TextStyle(fontSize: 22)),
-                title: const Text(
-                  'Español',
+                title: Text(
+                  l.languageSpanish,
                   style: TextStyle(color: AppColors.textPrimary),
                 ),
-                onTap: () => Navigator.pop(context),
+                trailing: currentCode == 'es'
+                    ? const Icon(Icons.check, color: AppColors.accentPrimary)
+                    : null,
+                onTap: () {
+                  context.read<LocaleProvider>().setLocale(const Locale('es'));
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),

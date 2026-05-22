@@ -4,6 +4,7 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/public_profile_screen.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 
@@ -12,14 +13,15 @@ class FollowRequestsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final myId = FirebaseService.getCurrentUser()?.uid;
     if (myId == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgPrimary,
         body: Center(
           child: Text(
-            'Sesión no iniciada',
-            style: TextStyle(color: AppColors.textSecondary),
+            l.socialFollowRequestsNotLoggedIn,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
       );
@@ -52,8 +54,8 @@ class FollowRequestsScreen extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                  const Text(
-                    'Solicitudes de seguimiento',
+                  Text(
+                    l.socialFollowRequestsTitle,
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
@@ -77,6 +79,23 @@ class FollowRequestsScreen extends StatelessWidget {
                     );
                   }
 
+                  if (snap.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          l.socialFollowRequestsLoadError,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+
                   final requests = snap.data ?? [];
 
                   if (requests.isEmpty) {
@@ -92,8 +111,8 @@ class FollowRequestsScreen extends StatelessWidget {
                             size: 54,
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          const Text(
-                            'Sin solicitudes pendientes',
+                          Text(
+                            l.socialFollowRequestsEmpty,
                             style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
@@ -274,7 +293,9 @@ class _FollowRequestTileState extends State<_FollowRequestTile> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('Aceptar'),
+              child: Text(
+                AppLocalizations.of(context).socialFollowRequestsAccept,
+              ),
             ),
             const SizedBox(width: AppSpacing.xs),
 
@@ -295,7 +316,9 @@ class _FollowRequestTileState extends State<_FollowRequestTile> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('Rechazar'),
+              child: Text(
+                AppLocalizations.of(context).socialFollowRequestsDecline,
+              ),
             ),
           ],
         ],

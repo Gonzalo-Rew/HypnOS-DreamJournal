@@ -1,11 +1,11 @@
 {
-    "name": "hypnos_dreamjournal",
-    "short_name": "hypnos_dreamjournal",
+    "name": "HypnOS",
+    "short_name": "HypnOS",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0E1020",
+    "theme_color": "#0E1020",
+    "description": "HypnOS dream journal.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

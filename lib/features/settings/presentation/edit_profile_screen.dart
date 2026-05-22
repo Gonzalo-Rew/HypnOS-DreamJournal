@@ -7,8 +7,10 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/models/user_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/auth_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/utils/validators_formatters.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -25,6 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   String _originalName = '';
+  String? _errorMessage;
 
   bool get _hasChanges => _nameController.text.trim() != _originalName;
 
@@ -79,6 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
+    final l = AppLocalizations.of(context);
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
@@ -88,60 +92,115 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
     if (picked == null || !mounted) return;
 
+    if (_user == null) {
+      _showSnack(l.profileLoadError, isError: true);
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final uid = _user!.id;
-      final ref = FirebaseStorage.instance.ref('avatars/$uid.jpg');
+      final ref = FirebaseStorage.instance.ref('users/$uid/profile/avatar.jpg');
       await ref.putFile(File(picked.path));
       final url = await ref.getDownloadURL();
-      await _authRepo.updateUserProfile(photoUrl: url);
-      await FirebaseService.firestore.collection('users').doc(uid).update({
-        'photoUrl': url,
-      });
+
+      final updateResult = await _authRepo.updateUserProfile(photoUrl: url);
+      if (updateResult is Failure) {
+        throw updateResult.exception;
+      }
+
       if (!mounted) return;
       setState(() {
         _user = _user!.copyWith(photoUrl: url);
         _isSaving = false;
       });
-      _showSnack('Avatar actualizado');
-    } catch (_) {
+      _showSnack(l.editProfileAvatarUpdated);
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
-      _showSnack('Error al subir avatar', isError: true);
+      final msg = e is AppException
+          ? e.message
+          : l.editProfileAvatarUploadError;
+      _showSnack(msg, isError: true);
     }
+  }
+
+  Future<bool> _isDisplayNameTaken(String name) async {
+    final key = name.trim().toLowerCase();
+    final currentKey = _originalName.trim().toLowerCase();
+    if (key == currentKey) return false;
+
+    final reservedDoc = await FirebaseService.firestore
+        .collection('usernames')
+        .doc(key)
+        .get();
+
+    if (!reservedDoc.exists) return false;
+
+    final reservedUid = reservedDoc.data()?['uid'] as String?;
+    return reservedUid != null && reservedUid != _user?.id;
   }
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty || !_hasChanges) return;
-    setState(() => _isSaving = true);
+    final l = AppLocalizations.of(context);
+    if (!_hasChanges) return;
+
+    final validationError = Validators.validateDisplayName(name, l);
+    if (validationError != null) {
+      setState(() {
+        _errorMessage = validationError;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final isTaken = await _isDisplayNameTaken(name);
+      if (!mounted) return;
+      if (isTaken) {
+        setState(() {
+          _isSaving = false;
+          _errorMessage = l.validationDisplayNameTaken;
+        });
+        return;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = l.editProfileNameValidationError;
+      });
+      return;
+    }
+
     final result = await _authRepo.updateUserProfile(displayName: name);
     if (!mounted) return;
     if (result is Failure) {
       final err = result.exception;
-      final isTaken =
+      final repoNameTaken =
           err is ValidationException && err.message == 'display_name_taken';
-      setState(() => _isSaving = false);
-      _showSnack(
-        isTaken
-            ? (Localizations.localeOf(context).languageCode == 'en'
-                  ? 'This name is already taken, please choose another'
-                  : 'Este nombre ya está en uso, elige otro')
-            : 'Error al actualizar el perfil',
-        isError: true,
-      );
+      setState(() {
+        _isSaving = false;
+        if (repoNameTaken) {
+          _errorMessage = l.validationDisplayNameTaken;
+        } else {
+          _errorMessage = l.editProfileUpdateFailed;
+        }
+      });
       return;
     }
     setState(() {
       _user = _user?.copyWith(displayName: name);
       _originalName = name;
       _isSaving = false;
+      _errorMessage = null;
     });
-    _showSnack(
-      Localizations.localeOf(context).languageCode == 'en'
-          ? 'Profile updated'
-          : 'Perfil actualizado',
-    );
+    _showSuccessFeedback(l.profileSaveSuccess);
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -153,8 +212,49 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  void _showSuccessFeedback(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E2230),
+        elevation: 0,
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.lg,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          side: const BorderSide(color: AppColors.borderSubtle),
+        ),
+        duration: const Duration(seconds: 2),
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.accentPrimary,
+              size: 18,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.bgPrimary,
@@ -194,8 +294,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                  const Text(
-                    'Editar perfil',
+                  Text(
+                    l.settingsEditProfile,
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
@@ -280,8 +380,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Center(
                     child: GestureDetector(
                       onTap: _isSaving ? null : _pickAvatar,
-                      child: const Text(
-                        'Cambiar avatar',
+                      child: Text(
+                        l.editProfileChangeAvatar,
                         style: TextStyle(
                           color: AppColors.accentPrimary,
                           fontSize: 13,
@@ -302,17 +402,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     child: TextField(
                       controller: _nameController,
+                      onChanged: (_) {
+                        if (_errorMessage != null) {
+                          setState(() => _errorMessage = null);
+                        }
+                      },
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
                           vertical: AppSpacing.sm,
                         ),
-                        labelText: 'Nombre de usuario',
-                        labelStyle: TextStyle(
+                        labelText: l.editProfileUsername,
+                        labelStyle: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
                         ),
@@ -320,6 +425,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                   ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -355,8 +470,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          'Guardar',
+                      : Text(
+                          l.dreamFormSaveButton,
                           style: TextStyle(
                             color: AppColors.bgPrimary,
                             fontSize: 15,

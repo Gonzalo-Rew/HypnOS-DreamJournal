@@ -84,9 +84,9 @@ class DreamRepositoryImpl implements DreamRepository {
         );
       }
 
-      if (text.trim().isEmpty) {
+      if (text.trim().isEmpty && audioPaths.isEmpty) {
         throw ValidationException(
-          message: 'Dream text cannot be empty',
+          message: 'Dream must include text or audio',
           field: 'text',
         );
       }
@@ -181,6 +181,7 @@ class DreamRepositoryImpl implements DreamRepository {
       data.remove('createdAt');
       data['updatedAt'] = DateTime.now();
       await _dreamDocument(userId, dreamId).update(data);
+      await _syncPublicDreamProjection(userId: userId, dreamId: dreamId);
       return const Success(null);
     } catch (e) {
       return Failure(FirestoreException(message: 'Failed to update dream: $e'));
@@ -259,5 +260,35 @@ class DreamRepositoryImpl implements DreamRepository {
         field: 'moodScore',
       );
     }
+  }
+
+  Future<void> _syncPublicDreamProjection({
+    required String userId,
+    required String dreamId,
+  }) async {
+    final dreamSnap = await _dreamDocument(userId, dreamId).get();
+    if (!dreamSnap.exists) return;
+
+    final dreamData = dreamSnap.data() ?? {};
+    final isPublished = dreamData['isPublished'] as bool? ?? false;
+    final publicDreamRef = _firestore.collection('publicDreams').doc(dreamId);
+
+    if (!isPublished) {
+      await publicDreamRef.delete();
+      return;
+    }
+
+    final publicSnap = await publicDreamRef.get();
+    final publicData = publicSnap.data() ?? {};
+
+    await publicDreamRef.set({
+      ...dreamData,
+      'userId': userId,
+      'isPublished': true,
+      'visibility': dreamData['visibility'] as String? ?? 'followers',
+      'publishedAt': publicData['publishedAt'] ?? FieldValue.serverTimestamp(),
+      'likesCount': publicData['likesCount'] as int? ?? 0,
+      'commentsCount': publicData['commentsCount'] as int? ?? 0,
+    }, SetOptions(merge: true));
   }
 }

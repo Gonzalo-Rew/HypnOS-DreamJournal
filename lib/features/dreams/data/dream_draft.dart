@@ -1,5 +1,6 @@
 /// Data carried between wizard steps when creating a new dream.
 /// Step 1 (form) → Step 2 (analysis) → Step 3 (saved/share).
+
 class DreamDraft {
   const DreamDraft({
     required this.title,
@@ -9,6 +10,7 @@ class DreamDraft {
     required this.existingAudioUrls,
     required this.removedExistingUrls,
     required this.isEditing,
+    required this.dreamDate,
     this.dreamId,
   });
 
@@ -26,6 +28,9 @@ class DreamDraft {
   final List<String> removedExistingUrls;
 
   final bool isEditing;
+
+  /// Fecha seleccionada para el sueño.
+  final DateTime dreamDate;
 
   /// Firestore document ID — only set in edit mode.
   final String? dreamId;

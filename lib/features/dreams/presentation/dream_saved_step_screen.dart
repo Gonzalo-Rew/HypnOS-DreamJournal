@@ -6,6 +6,10 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
+import 'package:hypnos_dreamjournal/features/dreams/presentation/dreams_refresh_bus.dart';
+import 'package:hypnos_dreamjournal/features/settings/presentation/account_security_screen.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
+import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
 
 // ── Step 3 of the dream creation wizard ────────────────────────────────────
 // Dream was just saved. User can publish it and/or share it.
@@ -33,7 +37,7 @@ class DreamSavedStepScreen extends StatefulWidget {
 
 class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
   late bool _isPublished;
-  String _profileDreamVisibility = 'public';
+  String _profileDreamVisibility = 'followers';
   bool _isSavingPublish = false;
 
   Map<String, dynamic>? get _analysis =>
@@ -70,8 +74,10 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Morfeo no pudo analizar el sueño',
+                      Text(
+                        AppLocalizations.of(
+                          context,
+                        ).dreamSavedMorfeoAnalyzeFailedTitle,
                         style: TextStyle(
                           color: Color(0xFFEF9A9A),
                           fontWeight: FontWeight.w600,
@@ -109,7 +115,9 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
       if (!mounted) return;
       setState(() {
         _profileDreamVisibility =
-            doc.data()?['dreamVisibility'] as String? ?? 'public';
+            (doc.data()?['dreamVisibility'] as String?) == 'public'
+            ? 'public'
+            : 'followers';
       });
     } catch (_) {}
   }
@@ -119,7 +127,7 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
     return switch (_profileDreamVisibility) {
       'public' => DreamVisibility.public,
       'followers' => DreamVisibility.followers,
-      _ => DreamVisibility.private,
+      _ => DreamVisibility.followers,
     };
   }
 
@@ -142,22 +150,25 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
   }
 
   void _shareViaSheet() {
+    final l = AppLocalizations.of(context);
     final title = widget.dream.title;
     final body = widget.dream.text.trim();
     final shareText = body.isNotEmpty
-        ? '✨ "$title"\n\n$body\n\n— Registrado en Hypnos Dream Journal'
-        : '✨ "$title"\n\n— Registrado en Hypnos Dream Journal';
+        ? l.dreamSavedShareWithBody(title, body)
+        : l.dreamSavedShareWithoutBody(title);
     Share.share(shareText, subject: title);
   }
 
   /// Navigate back to the diary tab.
   void _goToJournal() {
+    DreamsRefreshBus.notifyUpdated();
     Navigator.of(context).popUntil((route) => route.isFirst);
     MainShell.switchToTab(1); // diary tab index
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return PopScope(
       // Prevent swiping back to the analysis step
       canPop: false,
@@ -175,7 +186,7 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
-                    AppSpacing.lg,
+                    AppSpacing.md,
                     AppSpacing.lg,
                     AppSpacing.md,
                   ),
@@ -187,12 +198,12 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                         child: Column(
                           children: [
                             _SuccessOrb(hasAnalysis: _analysis != null),
-                            const SizedBox(height: AppSpacing.md),
-                            const Text(
-                              '¡Sueño guardado!',
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              l.dreamSavedTitle,
                               style: TextStyle(
                                 color: AppColors.textPrimary,
-                                fontSize: 22,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -200,10 +211,10 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                             Text(
                               widget.dream.title.isNotEmpty
                                   ? widget.dream.title
-                                  : 'Sin título',
+                                  : l.dreamsListUntitled,
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
-                                fontSize: 14,
+                                fontSize: 15,
                               ),
                               textAlign: TextAlign.center,
                               maxLines: 2,
@@ -222,100 +233,30 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                       const SizedBox(height: AppSpacing.lg),
 
                       // ── Publish toggle ─────────────────────────────
-                      _GlassCard(
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.public_rounded,
-                              color: AppColors.textSecondary,
-                              size: 18,
+                      _PublishVisibilityCard(
+                        title: l.dreamSavedPublishDream,
+                        subtitle: _isPublished
+                            ? _visibilityLabel()
+                            : l.dreamSavedVisibleOnlyYou,
+                        isPublished: _isPublished,
+                        isSaving: _isSavingPublish,
+                        onToggle: _togglePublish,
+                        onGoToSettings: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AccountSecurityScreen(),
                             ),
-                            const SizedBox(width: AppSpacing.xs),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Publicar sueño',
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _isPublished
-                                        ? _visibilityLabel()
-                                        : 'Solo visible para ti',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_isSavingPublish)
-                              const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.accentPrimary,
-                                ),
-                              )
-                            else
-                              Switch(
-                                value: _isPublished,
-                                onChanged: _togglePublish,
-                                activeColor: AppColors.accentPrimary,
-                                activeTrackColor: AppColors.accentPrimary
-                                    .withValues(alpha: 0.3),
-                              ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       const SizedBox(height: AppSpacing.md),
 
                       // ── Share section ──────────────────────────────
-                      _GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'COMPARTIR',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _ShareTile(
-                                    icon: Icons.chat_rounded,
-                                    label: 'WhatsApp',
-                                    color: const Color(0xFF25D366),
-                                    onTap: _shareViaSheet,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.xs),
-                                Expanded(
-                                  child: _ShareTile(
-                                    icon: Icons.share_rounded,
-                                    label: 'Más',
-                                    color: AppColors.accentPrimary,
-                                    onTap: _shareViaSheet,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      _ShareWorldSection(
+                        title: l.dreamSavedShareSection,
+                        whatsappLabel: l.dreamSavedShareWhatsapp,
+                        moreLabel: l.dreamSavedShareMore,
+                        onShare: _shareViaSheet,
                       ),
                       const SizedBox(height: AppSpacing.md),
                     ],
@@ -350,11 +291,11 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                       minimumSize: const Size.fromHeight(54),
                       shape: const StadiumBorder(),
                     ),
-                    child: const Text(
-                      'Ir al diario',
-                      style: TextStyle(
+                    child: Text(
+                      l.dreamSavedGoToJournal,
+                      style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                        fontSize: 17,
                       ),
                     ),
                   ),
@@ -368,9 +309,9 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
   }
 
   String _visibilityLabel() => switch (_profileDreamVisibility) {
-    'public' => 'Visible para todos',
-    'followers' => 'Visible para seguidores',
-    _ => 'Solo visible para ti',
+    'public' => AppLocalizations.of(context).dreamSavedVisibleForEveryone,
+    'followers' => AppLocalizations.of(context).dreamSavedVisibleForFollowers,
+    _ => AppLocalizations.of(context).dreamSavedVisibleForFollowers,
   };
 }
 
@@ -382,29 +323,32 @@ class _SuccessOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = hasAnalysis
+    final badgeColor = hasAnalysis
         ? AppColors.accentSecondary
         : AppColors.accentPrimary;
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.1),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.25),
-            blurRadius: 20,
-            spreadRadius: 2,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        const MorpheusOrb(size: 124),
+        Positioned(
+          right: 10,
+          bottom: 8,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: badgeColor,
+              border: Border.all(color: AppColors.bgPrimary, width: 2),
+            ),
+            child: Icon(
+              hasAnalysis ? Icons.auto_awesome_rounded : Icons.check_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
-        ],
-      ),
-      child: Icon(
-        hasAnalysis ? Icons.auto_awesome_rounded : Icons.check_rounded,
-        color: color,
-        size: 32,
-      ),
+        ),
+      ],
     );
   }
 }
@@ -417,6 +361,7 @@ class _MorfeoAnalysisCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final category = analysis['category'] as String? ?? '';
     final summary = analysis['summary'] as String? ?? '';
     final emotions =
@@ -447,8 +392,8 @@ class _MorfeoAnalysisCard extends StatelessWidget {
                 size: 14,
               ),
               const SizedBox(width: 6),
-              const Text(
-                'INTERPRETACIÓN DE MORFEO',
+              Text(
+                l.dreamSavedMorfeoInterpretation,
                 style: TextStyle(
                   color: AppColors.accentSecondary,
                   fontSize: 10,
@@ -479,8 +424,8 @@ class _MorfeoAnalysisCard extends StatelessWidget {
           // Emotions
           if (emotions.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'EMOCIONES',
+            Text(
+              l.dreamDetailAiEmotions.toUpperCase(),
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 9,
@@ -501,8 +446,8 @@ class _MorfeoAnalysisCard extends StatelessWidget {
           // Themes
           if (themes.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'TEMAS',
+            Text(
+              l.dreamDetailAiThemes.toUpperCase(),
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 9,
@@ -604,21 +549,246 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
+class _PublishVisibilityCard extends StatelessWidget {
+  const _PublishVisibilityCard({
+    required this.title,
+    required this.subtitle,
+    required this.isPublished,
+    required this.isSaving,
+    required this.onToggle,
+    required this.onGoToSettings,
+  });
 
-  final Widget child;
+  final String title;
+  final String subtitle;
+  final bool isPublished;
+  final bool isSaving;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onGoToSettings;
 
   @override
   Widget build(BuildContext context) {
+    final audienceLabel = isPublished ? 'Publicado' : 'Pendiente de publicar';
+    final audienceIcon = isPublished
+        ? Icons.public
+        : Icons.visibility_off_outlined;
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceGlass,
+            AppColors.accentSecondary.withValues(alpha: 0.12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: AppColors.borderSubtle.withValues(alpha: 0.9),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.bgPrimary.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: child,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.accentPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  audienceIcon,
+                  color: AppColors.accentPrimary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentPrimary.withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            audienceLabel,
+                            style: const TextStyle(
+                              color: AppColors.accentPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              if (isSaving)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accentPrimary,
+                  ),
+                )
+              else
+                Transform.scale(
+                  scale: 0.95,
+                  child: Switch(
+                    value: isPublished,
+                    onChanged: onToggle,
+                    activeThumbColor: AppColors.bgPrimary,
+                    activeTrackColor: AppColors.accentPrimary,
+                    inactiveThumbColor: const Color(0xFFCFD8DC),
+                    inactiveTrackColor: const Color(0xFF2A2D3A),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.bgPrimary.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: AppColors.borderSubtle.withValues(alpha: 0.65),
+              ),
+            ),
+            child: Text(
+              isPublished
+                  ? 'Revisa la audiencia desde Ajustes si quieres cambiarla.'
+                  : 'Al publicarlo, saldrá con la audiencia configurada en Ajustes.',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: onGoToSettings,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: Text(
+                'Cambiar en Ajustes ->',
+                style: const TextStyle(
+                  color: AppColors.accentPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.accentPrimary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShareWorldSection extends StatelessWidget {
+  const _ShareWorldSection({
+    required this.title,
+    required this.whatsappLabel,
+    required this.moreLabel,
+    required this.onShare,
+  });
+
+  final String title;
+  final String whatsappLabel;
+  final String moreLabel;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: _ShareTile(
+                icon: Icons.chat_rounded,
+                label: whatsappLabel,
+                color: AppColors.accentPrimary,
+                onTap: onShare,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _ShareTile(
+                icon: Icons.share_rounded,
+                label: moreLabel,
+                color: AppColors.accentPrimary,
+                onTap: onShare,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -641,22 +811,22 @@ class _ShareTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          color: AppColors.surfaceGlass,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.borderSubtle),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],

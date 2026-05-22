@@ -27,6 +27,9 @@ abstract class AuthRepository {
   /// Sign out
   Future<Result<void>> signOut();
 
+  /// Delete account after password re-authentication.
+  Future<Result<void>> deleteAccountWithPassword({required String password});
+
   /// Send password reset email
   Future<Result<void>> sendPasswordResetEmail({required String email});
 
@@ -160,8 +163,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
       return const Success(null);
     } on fa.FirebaseAuthException catch (e) {
+      var normalizedCode = _normalizeSignInErrorCode(e);
+      if (normalizedCode == 'invalid-credential') {
+        normalizedCode = await _resolveInvalidCredentialCode(email: email);
+      }
       return Failure(
-        AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
+        AuthException(
+          message: _getAuthErrorMessage(normalizedCode),
+          code: normalizedCode,
+        ),
       );
     } catch (e) {
       debugPrint('[Auth] signIn error: $e');
@@ -180,6 +190,89 @@ class AuthRepositoryImpl implements AuthRepository {
       debugPrint('[Auth] signOut error: $e');
       return Failure(
         AuthException(message: 'Sign out failed. Please try again.'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteAccountWithPassword({
+    required String password,
+  }) async {
+    try {
+      final currentUser = FirebaseService.auth.currentUser;
+      if (currentUser == null) {
+        return Failure(
+          AuthException(message: 'no-current-user', code: 'no-current-user'),
+        );
+      }
+
+      final trimmedPassword = password.trim();
+      if (trimmedPassword.isEmpty) {
+        return Failure(
+          ValidationException(message: 'password_required', field: 'password'),
+        );
+      }
+
+      final email = currentUser.email;
+      if (email == null || email.isEmpty) {
+        return Failure(
+          AuthException(
+            message: 'password-reauth-unavailable',
+            code: 'password-reauth-unavailable',
+          ),
+        );
+      }
+
+      final credential = fa.EmailAuthProvider.credential(
+        email: email,
+        password: trimmedPassword,
+      );
+      await currentUser.reauthenticateWithCredential(credential);
+
+      final uid = currentUser.uid;
+      final userRef = _firestore.collection('users').doc(uid);
+
+      await _firestore.runTransaction((tx) async {
+        final userSnap = await tx.get(userRef);
+
+        final displayNameFromUserDoc =
+            userSnap.data()?['displayName'] as String? ?? '';
+        final fallbackDisplayName = currentUser.displayName ?? '';
+        final nameKey =
+            (displayNameFromUserDoc.isNotEmpty
+                    ? displayNameFromUserDoc
+                    : fallbackDisplayName)
+                .trim()
+                .toLowerCase();
+
+        if (nameKey.isNotEmpty) {
+          final usernameRef = _firestore.collection('usernames').doc(nameKey);
+          final usernameSnap = await tx.get(usernameRef);
+          if (usernameSnap.exists) {
+            final reservedUid = usernameSnap.data()?['uid'] as String?;
+            if (reservedUid == uid) {
+              tx.delete(usernameRef);
+            }
+          }
+        }
+
+        tx.delete(userRef);
+      });
+
+      await currentUser.delete();
+      return const Success(null);
+    } on fa.FirebaseAuthException catch (e) {
+      return Failure(
+        AuthException(message: _getAuthErrorMessage(e.code), code: e.code),
+      );
+    } on FirebaseException catch (e) {
+      return Failure(
+        AuthException(message: e.message ?? 'firestore-failed', code: e.code),
+      );
+    } catch (e) {
+      debugPrint('[Auth] deleteAccountWithPassword error: $e');
+      return Failure(
+        AuthException(message: 'auth-generic', code: 'auth-generic'),
       );
     }
   }
@@ -291,16 +384,22 @@ class AuthRepositoryImpl implements AuthRepository {
                 field: 'displayName',
               );
             }
-            // Release old reservation (best-effort; ignore if not found)
+            // Release old reservation only when it belongs to the current user.
             if (oldKey.isNotEmpty) {
               final oldRef = _firestore.collection('usernames').doc(oldKey);
-              tx.delete(oldRef);
+              final oldSnap = await tx.get(oldRef);
+              if (oldSnap.exists &&
+                  (oldSnap.data()?['uid'] as String?) == currentUser.uid) {
+                tx.delete(oldRef);
+              }
             }
-            // Claim new name
-            tx.set(newRef, {
-              'uid': currentUser.uid,
-              'displayName': displayName.trim(),
-            });
+            // Claim new name only when reservation does not already exist.
+            if (!snap.exists) {
+              tx.set(newRef, {
+                'uid': currentUser.uid,
+                'displayName': displayName.trim(),
+              });
+            }
           });
         }
 
@@ -501,6 +600,68 @@ class AuthRepositoryImpl implements AuthRepository {
     };
   }
 
+  /// Normalizes Firebase Auth sign-in errors into stable semantic codes.
+  ///
+  /// Newer Firebase SDKs can collapse both missing-user and wrong-password into
+  /// `invalid-credential`, so we inspect the backend message to recover intent
+  /// when possible.
+  String _normalizeSignInErrorCode(fa.FirebaseAuthException e) {
+    if (e.code != 'invalid-credential') {
+      return e.code;
+    }
+
+    final message = (e.message ?? '').toLowerCase();
+
+    if (message.contains('no user record') ||
+        message.contains('user not found') ||
+        message.contains('email address is not found') ||
+        message.contains('there is no user')) {
+      return 'user-not-found';
+    }
+
+    if (message.contains('wrong password') ||
+        message.contains('invalid login credentials') ||
+        message.contains('invalid_login_credentials') ||
+        message.contains('password is invalid') ||
+        message.contains('credential is incorrect')) {
+      return 'wrong-password';
+    }
+
+    debugPrint(
+      '[Auth] signIn received ambiguous invalid-credential: '
+      'code=${e.code} message=${e.message}',
+    );
+    return 'invalid-credential';
+  }
+
+  /// Resolves ambiguous `invalid-credential` into a more specific sign-in code.
+  Future<String> _resolveInvalidCredentialCode({required String email}) async {
+    try {
+      final methods = await FirebaseService.auth.fetchSignInMethodsForEmail(
+        email,
+      );
+
+      if (methods.isEmpty) {
+        return 'user-not-found';
+      }
+
+      if (methods.contains('password')) {
+        return 'wrong-password';
+      }
+
+      return 'operation-not-allowed';
+    } on fa.FirebaseAuthException catch (e) {
+      debugPrint(
+        '[Auth] resolve invalid-credential failed with FirebaseAuthException: '
+        'code=${e.code} message=${e.message}',
+      );
+      return 'invalid-credential';
+    } catch (e) {
+      debugPrint('[Auth] resolve invalid-credential failed: $e');
+      return 'invalid-credential';
+    }
+  }
+
   /// Helper to get user-friendly error message from Firebase error code
   String _getAuthErrorMessage(String code) {
     return switch (code) {
@@ -514,6 +675,8 @@ class AuthRepositoryImpl implements AuthRepository {
       'user-not-found' =>
         'There is no user account associated with this email.',
       'wrong-password' => 'The password is invalid for the given email.',
+      'invalid-credential' =>
+        'The provided login credentials are invalid. Please try again.',
       'too-many-requests' =>
         'Too many failed login attempts. Please try again later.',
       'network-request-failed' =>

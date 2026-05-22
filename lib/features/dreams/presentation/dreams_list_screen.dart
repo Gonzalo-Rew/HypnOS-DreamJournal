@@ -7,8 +7,10 @@ import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_detail_screen.dart';
+import 'package:hypnos_dreamjournal/features/dreams/presentation/dreams_refresh_bus.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/utils/intensity_utils.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/glass_card.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/hypnos_app_bar.dart';
 
@@ -21,15 +23,47 @@ class DreamsListScreen extends StatefulWidget {
 
 class _DreamsListScreenState extends State<DreamsListScreen> {
   final DreamRepository _dreamRepository = DreamRepositoryImpl();
+  late final VoidCallback _refreshBusListener;
 
   bool _isLoading = true;
   String? _errorMessage;
   List<Dream> _dreams = const [];
 
+  // ── Filtro por fecha ──────────────────────────────────────────────────────
+  DateTime? _filterFrom;
+  DateTime? _filterTo;
+
+  List<Dream> get _filteredDreams {
+    if (_filterFrom == null && _filterTo == null) return _dreams;
+    return _dreams.where((d) {
+      final date = DateTime(
+        d.dreamDate.year,
+        d.dreamDate.month,
+        d.dreamDate.day,
+      );
+      if (_filterFrom != null && date.isBefore(_filterFrom!)) return false;
+      if (_filterTo != null && date.isAfter(_filterTo!)) return false;
+      return true;
+    }).toList();
+  }
+
+  bool get _isFiltering => _filterFrom != null || _filterTo != null;
+
   @override
   void initState() {
     super.initState();
+    _refreshBusListener = () {
+      if (!mounted) return;
+      _loadDreams();
+    };
+    DreamsRefreshBus.listenable.addListener(_refreshBusListener);
     _loadDreams();
+  }
+
+  @override
+  void dispose() {
+    DreamsRefreshBus.listenable.removeListener(_refreshBusListener);
+    super.dispose();
   }
 
   Future<void> _loadDreams() async {
@@ -51,9 +85,7 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
 
     final result = await _dreamRepository.getDreamsByUser(userId: userId);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _isLoading = false;
@@ -65,19 +97,60 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
     });
   }
 
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      initialDateRange: _filterFrom != null && _filterTo != null
+          ? DateTimeRange(start: _filterFrom!, end: _filterTo!)
+          : null,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: AppColors.accentPrimary,
+            onPrimary: AppColors.bgPrimary,
+            surface: const Color(0xFF181B2A),
+            onSurface: AppColors.textPrimary,
+          ),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Color(0xFF181B2A),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _filterFrom = DateTime(
+          picked.start.year,
+          picked.start.month,
+          picked.start.day,
+        );
+        _filterTo = DateTime(picked.end.year, picked.end.month, picked.end.day);
+      });
+    }
+  }
+
+  void _clearFilter() => setState(() {
+    _filterFrom = null;
+    _filterTo = null;
+  });
+
   Future<void> _openDetail(Dream dream) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => DreamDetailScreen(dream: dream)),
     );
-
-    if (changed == true) {
-      await _loadDreams();
-    }
+    if (changed == true) await _loadDreams();
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final filtered = _filteredDreams;
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
@@ -100,7 +173,106 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
             ),
-            // ── Body ──
+
+            // ── Barra de filtro por fecha ──────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
+              child: GestureDetector(
+                onTap: _pickDateRange,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _isFiltering
+                        ? AppColors.accentPrimary.withValues(alpha: 0.12)
+                        : AppColors.surfaceGlass,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(
+                      color: _isFiltering
+                          ? AppColors.accentPrimary.withValues(alpha: 0.50)
+                          : AppColors.borderSubtle.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.date_range_outlined,
+                        size: 16,
+                        color: _isFiltering
+                            ? AppColors.accentPrimary
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _isFiltering
+                              ? '${DateFormat('dd MMM yyyy', localeCode).format(_filterFrom!)}  ->  ${DateFormat('dd MMM yyyy', localeCode).format(_filterTo!)}'
+                              : l.dreamsListFilterByDate,
+                          style: TextStyle(
+                            color: _isFiltering
+                                ? AppColors.accentPrimary
+                                : AppColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: _isFiltering
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      if (_isFiltering)
+                        GestureDetector(
+                          onTap: _clearFilter,
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                              color: AppColors.accentPrimary,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Etiqueta de resultados cuando filtra ──────────────────────
+            if (_isFiltering && !_isLoading)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: AppSpacing.md,
+                  right: AppSpacing.md,
+                  bottom: AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      l.dreamsListResults(filtered.length),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── Body ──────────────────────────────────────────────────────
             Expanded(
               child: Builder(
                 builder: (context) {
@@ -137,7 +309,7 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
                     );
                   }
 
-                  if (_dreams.isEmpty) {
+                  if (filtered.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -151,11 +323,29 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
                             ),
                             const SizedBox(height: AppSpacing.md),
                             Text(
-                              l.dreamsListEmpty,
+                              _isFiltering
+                                  ? l.dreamsListNoDreamsInRange
+                                  : l.dreamsListEmpty,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                            const SizedBox(height: AppSpacing.sm),
+                            if (_isFiltering) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              TextButton.icon(
+                                onPressed: _clearFilter,
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 14,
+                                  color: AppColors.accentPrimary,
+                                ),
+                                label: Text(
+                                  l.dreamsListClearFilter,
+                                  style: TextStyle(
+                                    color: AppColors.accentPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -173,15 +363,17 @@ class _DreamsListScreenState extends State<DreamsListScreen> {
                         AppSpacing.md,
                         AppSpacing.xl,
                       ),
-                      itemCount: _dreams.length,
-                      separatorBuilder: (context2, i) =>
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, index) =>
                           const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (context, index) {
-                        final dream = _dreams[index];
+                        final dream = filtered[index];
                         return RepaintBoundary(
                           child: _DreamCard(
                             dream: dream,
-                            isLatest: index == 0,
+                            isLatest: index == 0 && !_isFiltering,
+                            l: l,
+                            localeCode: localeCode,
                             onTap: () => _openDetail(dream),
                           ),
                         );
@@ -204,35 +396,47 @@ class _DreamCard extends StatelessWidget {
   const _DreamCard({
     required this.dream,
     required this.isLatest,
+    required this.l,
+    required this.localeCode,
     required this.onTap,
   });
 
   final Dream dream;
   final bool isLatest;
+  final AppLocalizations l;
+  final String localeCode;
   final VoidCallback onTap;
 
   Color _moodColor() {
-    final score = dream.moodScore;
-    if (score == null) return AppColors.textSecondary;
-    if (score >= 4) return AppColors.success;
-    if (score >= 3) return AppColors.warning;
-    return AppColors.error;
+    return IntensityUtils.color(dream.moodScore);
   }
 
   String _moodLabel() {
-    final score = dream.moodScore;
-    if (score == null) return 'Sin valorar';
-    if (score >= 4) return 'Positivo';
-    if (score >= 3) return 'Neutral';
-    return 'Intenso';
+    return IntensityUtils.label(l, dream.moodScore);
+  }
+
+  bool _isAnalyzed() {
+    final hasStructured =
+        dream.aiAnalysis != null && dream.aiAnalysis!.isNotEmpty;
+    final hasByLanguage =
+        dream.aiAnalysisByLanguage != null &&
+        dream.aiAnalysisByLanguage!.isNotEmpty;
+    final hasSummary = dream.aiSummary?.trim().isNotEmpty ?? false;
+    return hasStructured || hasByLanguage || hasSummary;
   }
 
   @override
   Widget build(BuildContext context) {
+    final analyzed = _isAnalyzed();
+    final assistantName = AppLocalizations.of(context).welcomeMorpheusTitle;
+
     return GestureDetector(
       onTap: onTap,
       child: GlassCard(
         accentLeft: isLatest,
+        borderColor: analyzed
+            ? AppColors.accentSecondary.withValues(alpha: 0.45)
+            : null,
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +457,7 @@ class _DreamCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    DateFormat('dd MMM').format(dream.dreamDate),
+                    DateFormat('dd MMM', localeCode).format(dream.dreamDate),
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -263,6 +467,33 @@ class _DreamCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                if (analyzed) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSecondary.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.accentSecondary.withValues(
+                          alpha: 0.45,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      assistantName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accentSecondary,
+                        letterSpacing: 0.25,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
                 // Mood pill
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -306,7 +537,7 @@ class _DreamCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              dream.title.isNotEmpty ? dream.title : 'Sin título',
+              dream.title.isNotEmpty ? dream.title : l.dreamsListUntitled,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: dream.title.isNotEmpty ? null : AppColors.textSecondary,

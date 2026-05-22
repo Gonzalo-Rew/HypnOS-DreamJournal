@@ -21,6 +21,7 @@ class Dream {
 
   /// Full structured result from Gemini analysis (emotions, places, characters, themes, etc.).
   final Map<String, dynamic>? aiAnalysis;
+  final Map<String, dynamic>? aiAnalysisByLanguage;
   final bool isPublished;
   final DreamVisibility visibility;
   final int likesCount;
@@ -44,6 +45,7 @@ class Dream {
     this.transcription,
     this.aiSummary,
     this.aiAnalysis,
+    this.aiAnalysisByLanguage,
     this.isPublished = false,
     this.visibility = DreamVisibility.private,
     this.likesCount = 0,
@@ -70,7 +72,12 @@ class Dream {
       audioPaths: _readAudioPaths(data),
       transcription: data['transcription'] as String?,
       aiSummary: data['aiSummary'] as String?,
-      aiAnalysis: data['aiAnalysis'] as Map<String, dynamic>?,
+      aiAnalysis:
+          _readStringDynamicMap(data['aiAnalysis']) ??
+          _readStringDynamicMap(data['aiAnalysisData']),
+      aiAnalysisByLanguage: _readAnalysisByLanguage(
+        data['aiAnalysisByLanguage'],
+      ),
       isPublished: data['isPublished'] as bool? ?? false,
       visibility: _visibilityFromString(data['visibility'] as String?),
       likesCount: data['likesCount'] as int? ?? 0,
@@ -94,6 +101,7 @@ class Dream {
       'transcription': transcription,
       'aiSummary': aiSummary,
       'aiAnalysis': aiAnalysis,
+      'aiAnalysisByLanguage': aiAnalysisByLanguage,
       'isPublished': isPublished,
       'visibility': visibility.name,
       'likesCount': likesCount,
@@ -125,6 +133,26 @@ class Dream {
     return const [];
   }
 
+  static Map<String, dynamic>? _readStringDynamicMap(dynamic raw) {
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return null;
+  }
+
+  static Map<String, dynamic>? _readAnalysisByLanguage(dynamic raw) {
+    if (raw is! Map) return null;
+
+    final mapped = <String, dynamic>{};
+    raw.forEach((key, value) {
+      if (value is Map) {
+        mapped[key.toString()] = Map<String, dynamic>.from(value);
+      }
+    });
+
+    return mapped.isEmpty ? null : mapped;
+  }
+
   Dream copyWith({
     String? id,
     String? userId,
@@ -141,6 +169,7 @@ class Dream {
     String? transcription,
     String? aiSummary,
     Map<String, dynamic>? aiAnalysis,
+    Map<String, dynamic>? aiAnalysisByLanguage,
     bool? isPublished,
     DreamVisibility? visibility,
     int? likesCount,
@@ -162,6 +191,7 @@ class Dream {
       transcription: transcription ?? this.transcription,
       aiSummary: aiSummary ?? this.aiSummary,
       aiAnalysis: aiAnalysis ?? this.aiAnalysis,
+      aiAnalysisByLanguage: aiAnalysisByLanguage ?? this.aiAnalysisByLanguage,
       isPublished: isPublished ?? this.isPublished,
       visibility: visibility ?? this.visibility,
       likesCount: likesCount ?? this.likesCount,

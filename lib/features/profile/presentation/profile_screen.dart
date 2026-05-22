@@ -8,9 +8,12 @@ import 'package:hypnos_dreamjournal/data/repositories/auth_repository.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_detail_screen.dart';
+import 'package:hypnos_dreamjournal/features/social/presentation/follow_users_list_screen.dart';
+import 'package:hypnos_dreamjournal/features/settings/presentation/edit_profile_screen.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/follow_requests_screen.dart';
+import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/glass_card.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/hypnos_app_bar.dart';
@@ -74,6 +77,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
+  void _openEditProfile() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const EditProfileScreen()))
+        .then((_) => _loadProfile());
+  }
+
   void _openDreamDetail(Dream dream) {
     Navigator.of(
       context,
@@ -91,6 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.bgPrimary,
@@ -102,6 +112,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final user = _currentUser;
     final uid = user?.id ?? FirebaseService.getCurrentUserId() ?? '';
+    final publishedDreamsQuery = FirebaseService.firestore
+        .collection('users')
+        .doc(uid)
+        .collection('dreams')
+        .orderBy('updatedAt', descending: true);
 
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
@@ -184,7 +199,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         SliverToBoxAdapter(
                           child: _ProfileHeader(
                             user: liveUser,
-                            onEditTap: _openSettings,
+                            l: l,
+                            onEditTap: _openEditProfile,
                           ),
                         ),
                         SliverToBoxAdapter(
@@ -203,8 +219,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   size: 18,
                                 ),
                                 const SizedBox(width: AppSpacing.xs),
-                                const Text(
-                                  'Sueños publicados',
+                                Text(
+                                  l.profilePublishedDreams,
                                   style: TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 15,
@@ -218,7 +234,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         StreamBuilder<
                           List<QueryDocumentSnapshot<Map<String, dynamic>>>
                         >(
-                          stream: _social.getPublicDreamsByUser(uid),
+                          stream: publishedDreamsQuery.snapshots().map(
+                            (snap) => snap.docs
+                                .where(
+                                  (doc) =>
+                                      (doc.data()['isPublished'] as bool?) ??
+                                      false,
+                                )
+                                .toList(),
+                          ),
                           builder: (context, dreamSnap) {
                             if (dreamSnap.connectionState ==
                                 ConnectionState.waiting) {
@@ -249,8 +273,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         size: 48,
                                       ),
                                       const SizedBox(height: AppSpacing.sm),
-                                      const Text(
-                                        'Todavía no has publicado ningún sueño',
+                                      Text(
+                                        l.profileNoPublishedDreams,
                                         style: TextStyle(
                                           color: AppColors.textSecondary,
                                           fontSize: 13,
@@ -317,9 +341,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ─── Profile header ───────────────────────────────────────────────────────────
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.user, required this.onEditTap});
+  const _ProfileHeader({
+    required this.user,
+    required this.l,
+    required this.onEditTap,
+  });
 
   final User? user;
+  final AppLocalizations l;
   final VoidCallback onEditTap;
 
   @override
@@ -376,20 +405,54 @@ class _ProfileHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _StatChip(count: u?.followersCount ?? 0, label: 'Seguidores'),
+              _LiveCountStat(
+                onTap: u?.id == null
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FollowUsersListScreen(
+                            userId: u!.id,
+                            ownerName: u.displayName,
+                            type: FollowUsersListType.followers,
+                          ),
+                        ),
+                      ),
+                query: FirebaseService.firestore
+                    .collection('follows')
+                    .where('followingId', isEqualTo: u?.id ?? ''),
+                fallbackCount: u?.followersCount ?? 0,
+                label: l.profileFollowers,
+              ),
               const SizedBox(width: AppSpacing.lg),
-              _StatChip(count: u?.followingCount ?? 0, label: 'Siguiendo'),
+              _LiveCountStat(
+                onTap: u?.id == null
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FollowUsersListScreen(
+                            userId: u!.id,
+                            ownerName: u.displayName,
+                            type: FollowUsersListType.following,
+                          ),
+                        ),
+                      ),
+                query: FirebaseService.firestore
+                    .collection('follows')
+                    .where('followerId', isEqualTo: u?.id ?? ''),
+                fallbackCount: u?.followingCount ?? 0,
+                label: l.profileFollowing,
+              ),
               const SizedBox(width: AppSpacing.lg),
-              FutureBuilder<AggregateQuerySnapshot>(
-                future: FirebaseService.firestore
+              _LiveCountStat(
+                query: FirebaseService.firestore
+                    .collection('users')
+                    .doc(u?.id ?? '')
                     .collection('dreams')
-                    .where('userId', isEqualTo: u?.id ?? '')
-                    .count()
-                    .get(),
-                builder: (_, snap) {
-                  final count = snap.data?.count ?? 0;
-                  return _StatChip(count: count, label: 'Sueños');
-                },
+                    .where('isPublished', isEqualTo: true),
+                fallbackCount: 0,
+                label: l.profilePublishedDreams,
               ),
             ],
           ),
@@ -401,8 +464,8 @@ class _ProfileHeader extends StatelessWidget {
               size: 16,
               color: AppColors.accentPrimary,
             ),
-            label: const Text(
-              'Editar perfil',
+            label: Text(
+              l.settingsEditProfile,
               style: TextStyle(color: AppColors.accentPrimary, fontSize: 13),
             ),
             style: OutlinedButton.styleFrom(
@@ -442,6 +505,35 @@ class _StatChip extends StatelessWidget {
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
         ),
       ],
+    );
+  }
+}
+
+class _LiveCountStat extends StatelessWidget {
+  const _LiveCountStat({
+    this.onTap,
+    required this.query,
+    required this.fallbackCount,
+    required this.label,
+  });
+
+  final VoidCallback? onTap;
+  final Query<Map<String, dynamic>> query;
+  final int fallbackCount;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: query.snapshots(),
+      builder: (_, snap) {
+        final count = snap.data?.docs.length ?? fallbackCount;
+        return GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: _StatChip(count: count, label: label),
+        );
+      },
     );
   }
 }

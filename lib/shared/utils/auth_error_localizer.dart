@@ -7,8 +7,10 @@ String localizeAuthError(AppLocalizations l, String? code) {
     'email-already-in-use' => l.authErrorEmailInUse,
     'invalid-email' => l.authErrorInvalidEmail,
     'weak-password' => l.authErrorWeakPassword,
-    // Firebase uses 'wrong-password' for older SDK; 'invalid-credential' for newer
-    'wrong-password' || 'invalid-credential' => l.authErrorWrongPassword,
+    'wrong-password' => l.authErrorWrongPassword,
+    // `invalid-credential` can be ambiguous (wrong-password vs user-not-found).
+    // We normalize it in the repository when possible; if not, show generic.
+    'invalid-credential' => l.authErrorGeneric,
     'user-not-found' => l.authErrorUserNotFound,
     'user-disabled' => l.authErrorUserDisabled,
     'too-many-requests' => l.authErrorTooManyRequests,

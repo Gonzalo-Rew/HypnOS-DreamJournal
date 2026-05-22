@@ -12,8 +12,13 @@ import 'package:flutter/material.dart';
 ///
 /// Use [size] to scale the orb to any diameter.
 class MorpheusOrb extends StatefulWidget {
-  const MorpheusOrb({super.key, this.size = 220});
+  const MorpheusOrb({
+    super.key,
+    this.size = 220,
+    this.showBlueGlow = true,
+  });
   final double size;
+  final bool showBlueGlow;
 
   @override
   State<MorpheusOrb> createState() => _MorpheusOrbState();
@@ -66,7 +71,12 @@ class _MorpheusOrbState extends State<MorpheusOrb>
             child: SizedBox(
               width: widget.size,
               height: widget.size,
-              child: CustomPaint(painter: MorpheusOrbPainter(rotateAngle)),
+              child: CustomPaint(
+                painter: MorpheusOrbPainter(
+                  rotateAngle,
+                  showBlueGlow: widget.showBlueGlow,
+                ),
+              ),
             ),
           ),
         );
@@ -79,16 +89,24 @@ class _MorpheusOrbState extends State<MorpheusOrb>
 /// Useful for small avatar badges where animation controllers would waste
 /// resources or where movement inside a tight clip looks odd.
 class MorpheusOrbStatic extends StatelessWidget {
-  const MorpheusOrbStatic({super.key, this.size = 42, this.rotation = 0.8});
+  const MorpheusOrbStatic({
+    super.key,
+    this.size = 42,
+    this.rotation = 0.8,
+    this.showBlueGlow = true,
+  });
   final double size;
   final double rotation;
+  final bool showBlueGlow;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: MorpheusOrbPainter(rotation)),
+      child: CustomPaint(
+        painter: MorpheusOrbPainter(rotation, showBlueGlow: showBlueGlow),
+      ),
     );
   }
 }
@@ -97,8 +115,9 @@ class MorpheusOrbStatic extends StatelessWidget {
 // Painter (public so screens can embed a static version inside ClipOval, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 class MorpheusOrbPainter extends CustomPainter {
-  const MorpheusOrbPainter(this.rotation);
+  const MorpheusOrbPainter(this.rotation, {this.showBlueGlow = true});
   final double rotation;
+  final bool showBlueGlow;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -115,13 +134,15 @@ class MorpheusOrbPainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 45)
         ..color = const Color(0xFF8A2BE2).withValues(alpha: 0.38),
     );
-    canvas.drawCircle(
-      center,
-      r * 1.20,
-      Paint()
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22)
-        ..color = const Color(0xFF00F5FF).withValues(alpha: 0.18),
-    );
+    if (showBlueGlow) {
+      canvas.drawCircle(
+        center,
+        r * 1.20,
+        Paint()
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22)
+          ..color = const Color(0xFF00F5FF).withValues(alpha: 0.18),
+      );
+    }
 
     // 2. Clip everything to sphere boundary
     canvas.save();

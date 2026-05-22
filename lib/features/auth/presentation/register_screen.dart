@@ -72,10 +72,113 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     if (result is Success<void>) {
+      setState(() => _errorMessage = null);
+      await _showRegisterSuccessDialog(l);
+      if (!mounted) return;
+      await _authRepository.signOut();
+      if (!mounted) return;
       Navigator.of(
         context,
-      ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     }
+  }
+
+  Future<void> _showRegisterSuccessDialog(AppLocalizations l) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2230),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppColors.accentPrimary.withValues(alpha: 0.25),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accentPrimary.withValues(alpha: 0.12),
+                blurRadius: 44,
+                spreadRadius: -4,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.accentPrimary.withValues(alpha: 0.20),
+                      AppColors.accentSecondary.withValues(alpha: 0.20),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: AppColors.accentPrimary.withValues(alpha: 0.45),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: AppColors.accentPrimary,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '¡Cuenta creada!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                l.registerSuccessMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentPrimary,
+                    foregroundColor: AppColors.bgPrimary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    l.loginButton,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showComingSoon() {

@@ -94,6 +94,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'El nombre no puede superar los 50 caracteres';
 
   @override
+  String get validationDisplayNameInvalidChars =>
+      'El nombre contiene caracteres no permitidos';
+
+  @override
   String get validationDisplayNameTaken =>
       'Este nombre ya está en uso, elige otro';
 
@@ -149,11 +153,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String dreamsListMoodLabel(String score) {
-    return 'Ánimo $score';
+    return 'Intensidad $score';
   }
 
   @override
-  String get dreamsListMoodNoScore => 'Ánimo -';
+  String get dreamsListMoodNoScore => 'Intensidad -';
 
   @override
   String get dreamsListTooltipCreate => 'Nuevo sueño';
@@ -175,7 +179,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dreamFormFieldText => 'Descripción del sueño';
 
   @override
-  String get dreamFormFieldMood => 'Estado de ánimo (1-5)';
+  String get dreamFormFieldMood => 'Intensidad emocional (1-5)';
 
   @override
   String get dreamFormFieldContextNotes => 'Notas de contexto';
@@ -185,11 +189,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get dreamFormValidationMoodRequired =>
-      'El estado de ánimo es obligatorio';
+      'La intensidad emocional es obligatoria';
 
   @override
   String get dreamFormValidationMoodRange =>
-      'El estado de ánimo debe estar entre 1 y 5';
+      'La intensidad emocional debe estar entre 1 y 5';
 
   @override
   String get dreamFormSaveButton => 'Guardar cambios';
@@ -205,11 +209,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dreamDetailTitle => 'Detalle del sueño';
 
   @override
-  String get dreamDetailMoodScore => 'Estado de ánimo';
+  String get dreamDetailMoodScore => 'Intensidad emocional';
 
   @override
   String get dreamDetailMoodTooltip =>
-      'Tu estado de ánimo al despertar,\ndel 1 (muy mal) al 5 (excelente).';
+      'Tu intensidad emocional al despertar:\n1 Tranquilo, 2 Leve, 3 Moderado, 4 Intenso, 5 Extremo.';
 
   @override
   String get dreamDetailContextNotes => 'Notas de contexto';
@@ -400,13 +404,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardThisMonth => 'Este mes';
 
   @override
-  String get dashboardAvgMood => 'Ánimo prom.';
+  String get dashboardAvgMood => 'Intensidad prom.';
 
   @override
   String get dashboardAiAnalyzed => 'Analizados IA';
 
   @override
-  String get dashboardMoodEvolution => 'Evolución del ánimo';
+  String get dashboardMoodEvolution => 'Evolución de intensidad';
 
   @override
   String get dashboardDreamsPerWeek => 'Sueños por semana';
@@ -424,7 +428,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dashboardNoDreamsThisMonth => 'Ninguno este mes';
 
   @override
-  String get welcomeMorpheusTitle => 'Morpheus';
+  String get welcomeMorpheusTitle => 'Morfeo';
 
   @override
   String get welcomeMorpheusSubtitle => 'Tu diario de sueños personal';
@@ -538,4 +542,599 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get authErrorGeneric => 'Ha ocurrido un error. Inténtalo de nuevo';
+
+  @override
+  String get settingsTitle => 'Ajustes';
+
+  @override
+  String get settingsSectionAccount => 'PERFIL Y CUENTA';
+
+  @override
+  String get settingsEditProfile => 'Editar perfil';
+
+  @override
+  String get settingsAccountSecurity => 'Cuenta y seguridad';
+
+  @override
+  String get settingsNotifications => 'Notificaciones';
+
+  @override
+  String get settingsSectionPreferences => 'PREFERENCIAS';
+
+  @override
+  String get settingsSectionAi => 'INTELIGENCIA ARTIFICIAL';
+
+  @override
+  String get settingsAiTitle => 'Morfeo - Análisis con IA';
+
+  @override
+  String get settingsAiSubtitle => 'Activo · gestionado por el servidor';
+
+  @override
+  String get settingsSectionLegal => 'LEGAL';
+
+  @override
+  String get settingsPrivacyPolicy => 'Política de privacidad';
+
+  @override
+  String get settingsTermsAndConditions => 'Términos y condiciones';
+
+  @override
+  String get dreamsListFilterByDate => 'Filtrar por fecha';
+
+  @override
+  String dreamsListResults(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 's',
+      one: '',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 's',
+      one: '',
+    );
+    return '$count sueño$_temp0 encontrado$_temp1';
+  }
+
+  @override
+  String get dreamsListNoDreamsInRange =>
+      'No hay sueños en ese rango de fechas';
+
+  @override
+  String get dreamsListClearFilter => 'Quitar filtro';
+
+  @override
+  String get dreamsListMoodUnrated => 'Sin valorar';
+
+  @override
+  String get dreamsListMoodPositive => 'Leve';
+
+  @override
+  String get dreamsListMoodNeutral => 'Moderado';
+
+  @override
+  String get dreamsListMoodIntense => 'Intenso';
+
+  @override
+  String get dreamsListUntitled => 'Sin título';
+
+  @override
+  String get dreamFormNeedTextOrAudio =>
+      'Añade una descripción o una grabación de audio.';
+
+  @override
+  String dreamFormDescriptionMin(int min) {
+    return 'La descripción debe tener al menos $min caracteres para un análisis útil.';
+  }
+
+  @override
+  String dreamFormAudioLimit(int max) {
+    return 'Solo puedes adjuntar hasta $max grabaciones.';
+  }
+
+  @override
+  String get dreamFormDateSection => 'FECHA';
+
+  @override
+  String get dreamFormTitleSection => 'TÍTULO';
+
+  @override
+  String get dreamFormTitleHint => 'El bosque de neón...';
+
+  @override
+  String get dreamFormTellItSection => 'CUÉNTALO';
+
+  @override
+  String get dreamFormDescriptionHint => 'Escribe lo que recuerdas...';
+
+  @override
+  String get dreamFormIntensitySection => 'INTENSIDAD EMOCIONAL';
+
+  @override
+  String get dreamFormNextButton => 'Siguiente ->';
+
+  @override
+  String get dreamFormPrivateSaveHint =>
+      'Tu sueño se guardará de forma privada';
+
+  @override
+  String get dreamFormVoiceRecordingsSection => 'Grabaciones de voz';
+
+  @override
+  String dreamFormAudioLimitReached(int max) {
+    return 'Límite alcanzado (máx. $max)';
+  }
+
+  @override
+  String get dreamFormRecordAudio => 'Grabar audio';
+
+  @override
+  String get dreamFormIntensityCalm => 'Tranquilo';
+
+  @override
+  String get dreamFormIntensityMild => 'Leve';
+
+  @override
+  String get dreamFormIntensityModerate => 'Moderado';
+
+  @override
+  String get dreamFormIntensityIntense => 'Intenso';
+
+  @override
+  String get dreamFormIntensityExtreme => 'Extremo';
+
+  @override
+  String get dreamFormContextTags => 'Etiquetas de contexto';
+
+  @override
+  String get dreamFormContextTagsHint =>
+      'Morfeo las generará automáticamente tras guardar';
+
+  @override
+  String get dashboardNotLoggedIn =>
+      'Sesión no iniciada. Vuelve a iniciar sesión.';
+
+  @override
+  String get dashboardInsightAnalyzing => 'Morfeo está analizando tus sueños.';
+
+  @override
+  String get dashboardInsightNeedMood =>
+      'Registra la intensidad emocional en tus sueños para obtener correlaciones.';
+
+  @override
+  String get dashboardInsightTrendUp =>
+      'Tu estado emocional en sueños ha mejorado esta semana. Morfeo detecta una tendencia positiva.';
+
+  @override
+  String get dashboardInsightTrendDown =>
+      'Tus sueños recientes muestran mayor intensidad emocional. Considera revisar tus hábitos de sueño.';
+
+  @override
+  String get dashboardInsightPositive =>
+      'Tus sueños reflejan un estado emocional positivo de forma consistente.';
+
+  @override
+  String get dashboardInsightNeutral =>
+      'Estado emocional neutro en tus sueños. Morfeo no detecta patrones de alerta.';
+
+  @override
+  String get dashboardInsightTense =>
+      'Morfeo detecta tensión emocional recurrente. Considera técnicas de relajación antes de dormir.';
+
+  @override
+  String get dashboardDayMon => 'Lun';
+
+  @override
+  String get dashboardDayTue => 'Mar';
+
+  @override
+  String get dashboardDayWed => 'Mié';
+
+  @override
+  String get dashboardDayThu => 'Jue';
+
+  @override
+  String get dashboardDayFri => 'Vie';
+
+  @override
+  String get dashboardDaySat => 'Sáb';
+
+  @override
+  String get dashboardDaySun => 'Dom';
+
+  @override
+  String get dashboardMoodTone7d => 'TONO EMOCIONAL (7 DÍAS)';
+
+  @override
+  String get dashboardRecurringElements => 'ELEMENTOS RECURRENTES';
+
+  @override
+  String get dashboardCorrelationNeedMore =>
+      'Necesitas más registros para detectar correlaciones. Sigue añadiendo sueños cada día.';
+
+  @override
+  String get dashboardCorrelationNeedMood =>
+      'Valora la intensidad emocional de tus sueños para activar el análisis de correlación.';
+
+  @override
+  String get dashboardCorrelationHigh =>
+      'Tus sueños intensos coinciden con días de alta energía y actividad positiva.';
+
+  @override
+  String get dashboardCorrelationStable =>
+      'Morfeo detecta estabilidad emocional. Tus sueños reflejan tu ritmo diario.';
+
+  @override
+  String get dashboardCorrelationStress =>
+      'Tus sueños intensos coinciden con días de alta actividad o estrés. Considera rutinas de relajación nocturna.';
+
+  @override
+  String get dashboardCorrelationTitle => 'CORRELACIÓN';
+
+  @override
+  String get editProfileAvatarUpdated => 'Avatar actualizado';
+
+  @override
+  String get editProfileAvatarUploadError => 'Error al subir avatar';
+
+  @override
+  String get editProfileNameValidationError => 'No se pudo validar el nombre';
+
+  @override
+  String get editProfileUpdateFailed => 'Error al actualizar el perfil';
+
+  @override
+  String get editProfileChangeAvatar => 'Cambiar avatar';
+
+  @override
+  String get editProfileUsername => 'Nombre de usuario';
+
+  @override
+  String get profilePublishedDreams => 'Sueños publicados';
+
+  @override
+  String get profileNoPublishedDreams =>
+      'Todavía no has publicado ningún sueño';
+
+  @override
+  String get profileFollowers => 'Seguidores';
+
+  @override
+  String get profileFollowing => 'Siguiendo';
+
+  @override
+  String get dreamAnalysisTitle => 'Analizar sueño';
+
+  @override
+  String get dreamAnalysisUploadingRecordings => 'Subiendo grabaciones...';
+
+  @override
+  String get dreamAnalysisAudioUploadFailedTitle =>
+      'No se pudieron subir los audios';
+
+  @override
+  String get dreamAnalysisAudioUploadFailedMessage =>
+      'No hemos podido subir tus grabaciones. Revisa tu conexión e inténtalo de nuevo antes de guardar.';
+
+  @override
+  String get dreamAnalysisMissingContentTitle => 'Falta contenido para guardar';
+
+  @override
+  String get dreamAnalysisMissingContentMessage =>
+      'Para guardar sin análisis necesitas un título y al menos texto o audio válido. Vuelve a grabar el audio o añade una descripción.';
+
+  @override
+  String get dreamAnalysisMorfeoListening => 'Morfeo está escuchando...';
+
+  @override
+  String get dreamAnalysisMorfeoTranscriptionFailedTitle =>
+      'Morfeo no pudo transcribir';
+
+  @override
+  String get dreamAnalysisMorfeoTranscriptionFailedMessage =>
+      'Hubo un problema al procesar tus grabaciones. Puede pasar si el audio no se escucha bien o si hay muy poca información. Prueba a grabar de nuevo con más detalle o usa \"Guardar sin análisis\".';
+
+  @override
+  String get dreamAnalysisMorfeoTranscriptionReadFailedMessage =>
+      'No se pudo leer correctamente el audio grabado. Puede pasar si el audio no se escucha bien o si hay muy poca información. Prueba a grabar de nuevo con más detalle o usa \"Guardar sin análisis\".';
+
+  @override
+  String get dreamAnalysisInsufficientInfoTitle => 'Información insuficiente';
+
+  @override
+  String get dreamAnalysisInsufficientInfoMessage =>
+      'La transcripción de tus audios es demasiado corta para que Morfeo pueda analizar bien el sueño. Puede pasar si el audio no se escucha bien o si hay muy poca información. Prueba a grabar de nuevo con más detalle o usa \"Guardar sin análisis\".';
+
+  @override
+  String get dreamAnalysisMorfeoInterpreting =>
+      'Morfeo está interpretando tu sueño...';
+
+  @override
+  String get dreamAnalysisMorfeoAnalyzeFailedTitle => 'Morfeo no pudo analizar';
+
+  @override
+  String get dreamAnalysisMorfeoAnalyzeFailedMessage =>
+      'Ahora mismo no se pudo completar el análisis. Puede pasar si el audio no se escucha bien o si hay muy poca información. Prueba a grabar de nuevo con más detalle o usa \"Guardar sin análisis\".';
+
+  @override
+  String get dreamAnalysisMorfeoAnalyzeUnexpectedMessage =>
+      'Se produjo un error inesperado al analizar el sueño. Puede pasar si el audio no se escucha bien o si hay muy poca información. Prueba a grabar de nuevo con más detalle o usa \"Guardar sin análisis\".';
+
+  @override
+  String get dreamAnalysisSavingToJournal => 'Guardando en tu diario...';
+
+  @override
+  String get dreamAnalysisSaveFailedTitle => 'No se pudo guardar el sueño';
+
+  @override
+  String get dreamAnalysisSaveFailedAudioMessage =>
+      'No se pudo completar el guardado. Puede deberse a una subida incompleta de audio o a un problema de conexión. Revisa tu conexión y vuelve a intentarlo.';
+
+  @override
+  String get dreamAnalysisSaveFailedConnectionMessage =>
+      'No se pudo completar el guardado por un problema de conexión o permisos. Inténtalo de nuevo.';
+
+  @override
+  String get dreamAnalysisSaveErrorRetry =>
+      'Error al guardar el sueño. Inténtalo de nuevo.';
+
+  @override
+  String get dreamAnalysisUnderstood => 'Entendido';
+
+  @override
+  String get dreamAnalysisSomethingWentWrong => 'Algo salió mal.';
+
+  @override
+  String get dreamAnalysisMorfeoSubtitle => 'Intérprete de sueños IA';
+
+  @override
+  String get dreamAnalysisCardBodyWithAudio =>
+      'Transcribiré tus grabaciones y analizaré emociones, lugares y temas clave de tu sueño.';
+
+  @override
+  String get dreamAnalysisCardBodyWithoutAudio =>
+      'Analizaré emociones, lugares y temas clave de tu sueño y te devolveré un resumen útil.';
+
+  @override
+  String get dreamAnalysisAnalyzeWithMorfeo => 'Analizar con Morfeo';
+
+  @override
+  String get dreamAnalysisSaveWithoutAnalysis => 'Guardar sin análisis';
+
+  @override
+  String dreamAnalysisAudioRecordingsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'es',
+      one: '',
+    );
+    return '$count grabación$_temp0';
+  }
+
+  @override
+  String get dreamSavedMorfeoAnalyzeFailedTitle =>
+      'Morfeo no pudo analizar el sueño';
+
+  @override
+  String dreamSavedShareWithBody(String title, String body) {
+    return '✨ \"$title\"\n\n$body\n\n— Registrado en Hypnos Dream Journal';
+  }
+
+  @override
+  String dreamSavedShareWithoutBody(String title) {
+    return '✨ \"$title\"\n\n— Registrado en Hypnos Dream Journal';
+  }
+
+  @override
+  String get dreamSavedTitle => '¡Sueño guardado!';
+
+  @override
+  String get dreamSavedPublishDream => 'Publicar sueño';
+
+  @override
+  String get dreamSavedVisibleOnlyYou => 'Solo visible para ti';
+
+  @override
+  String get dreamSavedShareSection => 'COMPARTIR';
+
+  @override
+  String get dreamSavedShareWhatsapp => 'WhatsApp';
+
+  @override
+  String get dreamSavedShareMore => 'Más';
+
+  @override
+  String get dreamSavedGoToJournal => 'Ir al diario';
+
+  @override
+  String get dreamSavedVisibleForEveryone => 'Visible para todos';
+
+  @override
+  String get dreamSavedVisibleForFollowers => 'Visible para seguidores';
+
+  @override
+  String get dreamSavedMorfeoInterpretation => 'INTERPRETACIÓN DE MORFEO';
+
+  @override
+  String get dreamMorfeoResultTitle => 'Resultado de Morfeo';
+
+  @override
+  String get dreamMorfeoResultSubtitle =>
+      'Revisa el análisis completo antes de decidir cómo publicar tu sueño.';
+
+  @override
+  String get dreamMorfeoResultContinue => 'Continuar a publicación';
+
+  @override
+  String get dreamMorfeoResultEmpty =>
+      'Morfeo no devolvió suficientes detalles de análisis para este sueño.';
+
+  @override
+  String get dreamMorfeoResultEmptyField => 'Sin datos';
+
+  @override
+  String get accountSecurityBiometricDialogTitle =>
+      'Activar desbloqueo biométrico';
+
+  @override
+  String get accountSecurityBiometricDialogMessage =>
+      'Introduce tu contraseña para guardar este acceso en este dispositivo.';
+
+  @override
+  String get accountSecurityCurrentPasswordLabel => 'Contraseña actual';
+
+  @override
+  String get accountSecurityActivate => 'Activar';
+
+  @override
+  String get accountSecurityBiometricDisabled =>
+      'Desbloqueo biométrico desactivado';
+
+  @override
+  String get accountSecurityBiometricPasswordOnly =>
+      'Solo se puede activar en cuentas con correo y contraseña';
+
+  @override
+  String get accountSecurityBiometricEnabled =>
+      'Desbloqueo biométrico activado';
+
+  @override
+  String get accountSecurityBiometricEnableFailed =>
+      'No se pudo activar la biometría';
+
+  @override
+  String get accountSecurityVisibilityEveryone => 'Todo el mundo';
+
+  @override
+  String get accountSecurityVisibilityFollowers => 'Solo seguidores';
+
+  @override
+  String get accountSecurityVisibilityPrivate => 'Privado';
+
+  @override
+  String get accountSecurityResetPasswordTitle => 'Restablecer contraseña';
+
+  @override
+  String accountSecurityResetPasswordMessage(String email) {
+    return 'Te enviaremos un enlace a $email.';
+  }
+
+  @override
+  String get accountSecurityResetPasswordSendLink => 'Enviar enlace';
+
+  @override
+  String get accountSecurityResetPasswordSendError =>
+      'Error al enviar el enlace';
+
+  @override
+  String get accountSecurityEmailSentTitle => '¡Correo enviado!';
+
+  @override
+  String get accountSecurityEmailSentPrefix =>
+      'Hemos enviado un enlace de\nrestablecimiento a ';
+
+  @override
+  String get accountSecurityEmailSentSuffix =>
+      '\n\nRevisa también tu carpeta de spam.';
+
+  @override
+  String get accountSecurityVisibilityUpdated => 'Visibilidad actualizada';
+
+  @override
+  String get accountSecurityLogoutConfirmMessage =>
+      '¿Seguro que quieres cerrar sesión?';
+
+  @override
+  String get accountSecurityDeleteWrongPassword =>
+      'La contraseña es incorrecta';
+
+  @override
+  String get accountSecurityDeleteRequiresRecentLogin =>
+      'Por seguridad, vuelve a iniciar sesión y reinténtalo';
+
+  @override
+  String get accountSecurityDeleteReauthUnavailable =>
+      'Esta cuenta no usa contraseña. Inicia sesión con tu proveedor y reintenta';
+
+  @override
+  String get accountSecurityDeleteGenericError =>
+      'No se pudo eliminar la cuenta. Inténtalo de nuevo';
+
+  @override
+  String get accountSecurityDeleteTitle => 'Eliminar cuenta';
+
+  @override
+  String get accountSecurityDeleteDialogMessage =>
+      'Esta acción es permanente. Introduce tu contraseña para confirmar.';
+
+  @override
+  String get accountSecurityDeletePermanently => 'Eliminar definitivamente';
+
+  @override
+  String get accountSecurityCredentialsSection => 'CREDENCIALES';
+
+  @override
+  String get accountSecurityNoData => '—';
+
+  @override
+  String get accountSecurityChangePassword => 'Cambiar contraseña';
+
+  @override
+  String get accountSecurityPrivacySection => 'PRIVACIDAD';
+
+  @override
+  String get accountSecurityBiometricTitle => 'Desbloqueo biométrico';
+
+  @override
+  String get accountSecurityBiometricSupported =>
+      'Usa tu huella para iniciar sesión en este dispositivo.';
+
+  @override
+  String get accountSecurityBiometricUnsupported =>
+      'Este dispositivo no admite biometría.';
+
+  @override
+  String get accountSecurityDreamVisibility => 'Visibilidad de los sueños';
+
+  @override
+  String get accountSecurityAccountActionsSection => 'ACCIONES DE CUENTA';
+
+  @override
+  String get accountSecurityPermanentActionsHint =>
+      'Estas acciones son permanentes y no se pueden deshacer.';
+
+  @override
+  String get accountSecurityVisibilityEveryoneSubtitle =>
+      'Tus sueños están disponibles públicamente.';
+
+  @override
+  String get accountSecurityVisibilityFollowersSubtitle =>
+      'Solo quienes te siguen pueden ver tus sueños.';
+
+  @override
+  String get accountSecurityVisibilityPrivateSubtitle =>
+      'Nadie puede ver tus sueños.';
+
+  @override
+  String get socialFollowRequestsNotLoggedIn => 'Sesión no iniciada';
+
+  @override
+  String get socialFollowRequestsTitle => 'Solicitudes de seguimiento';
+
+  @override
+  String get socialFollowRequestsLoadError =>
+      'No se pudieron cargar las solicitudes. Intenta de nuevo.';
+
+  @override
+  String get socialFollowRequestsEmpty => 'Sin solicitudes pendientes';
+
+  @override
+  String get socialFollowRequestsAccept => 'Aceptar';
+
+  @override
+  String get socialFollowRequestsDecline => 'Rechazar';
 }

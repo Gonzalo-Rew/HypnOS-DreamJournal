@@ -48,6 +48,7 @@ dependencies:
   sign_in_with_apple: ^6.0.0
   # Biometría
   local_auth: ^2.2.0 # Autenticación biométrica
+  flutter_secure_storage: ^9.2.4 # Almacenamiento seguro de credenciales biométricas
   # Audio
   record: ^6.0.0 # Grabar audio
   just_audio: ^0.9.38 # Reproducir audio 
@@ -114,6 +115,31 @@ dev_dependencies:
 
   # Test mocking
   mocktail: ^1.0.4
+
+  # Launcher icon generation
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  adaptive_icon_foreground: assets/icons/morpheus_orb_launcher.png
+  adaptive_icon_background: "#0E1020"
+  adaptive_icon_foreground_inset: 0
+  ios: true
+  remove_alpha_ios: true
+  image_path: assets/icons/morpheus_orb_launcher.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
+    background_color: "#0E1020"
+    theme_color: "#0E1020"
+  windows:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/icons/morpheus_orb_launcher.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
