@@ -326,6 +326,18 @@ abstract class AppLocalizations {
   /// **'Profile'**
   String get homeProfile;
 
+  /// No description provided for @homeTodayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get homeTodayLabel;
+
+  /// No description provided for @homeNoDreamsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No dreams registered today'**
+  String get homeNoDreamsToday;
+
   /// No description provided for @dreamsListTitle.
   ///
   /// In en, this message translates to:
@@ -1133,7 +1145,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAiSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Active · managed by the server'**
+  /// **'Active'**
   String get settingsAiSubtitle;
 
   /// No description provided for @settingsSectionLegal.
@@ -1478,6 +1490,18 @@ abstract class AppLocalizations {
   /// **'Avatar updated'**
   String get editProfileAvatarUpdated;
 
+  /// No description provided for @editProfileAvatarRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar removed'**
+  String get editProfileAvatarRemoved;
+
+  /// No description provided for @editProfileAvatarRemoveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error removing avatar'**
+  String get editProfileAvatarRemoveError;
+
   /// No description provided for @editProfileAvatarUploadError.
   ///
   /// In en, this message translates to:
@@ -1501,6 +1525,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change avatar'**
   String get editProfileChangeAvatar;
+
+  /// No description provided for @editProfileRemoveAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove avatar'**
+  String get editProfileRemoveAvatar;
 
   /// No description provided for @editProfileUsername.
   ///

@@ -106,6 +106,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final updateResult = await _authRepo.updateUserProfile(photoUrl: url);
       if (updateResult is Failure) {
+        try {
+          await ref.delete();
+        } on FirebaseException catch (_) {
+          // Best-effort rollback if Firestore update fails after upload.
+        }
         throw updateResult.exception;
       }
 
@@ -121,6 +126,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final msg = e is AppException
           ? e.message
           : l.editProfileAvatarUploadError;
+      _showSnack(msg, isError: true);
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    final l = AppLocalizations.of(context);
+
+    if (_user == null || _user?.photoUrl == null) {
+      _showSnack(l.profileLoadError, isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final uid = _user!.id;
+      final updateResult = await _authRepo.updateUserProfile(
+        clearPhotoUrl: true,
+      );
+      if (updateResult is Failure) {
+        throw updateResult.exception;
+      }
+
+      final ref = FirebaseStorage.instance.ref('users/$uid/profile/avatar.jpg');
+      try {
+        await ref.delete();
+      } on FirebaseException catch (_) {
+        // Best-effort cleanup. Profile state was already updated to no-avatar.
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _user = _user!.copyWith(photoUrl: null);
+        _isSaving = false;
+      });
+      _showSnack(l.editProfileAvatarRemoved);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      final msg = e is AppException
+          ? e.message
+          : l.editProfileAvatarRemoveError;
       _showSnack(msg, isError: true);
     }
   }
@@ -204,12 +250,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showSnack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? AppColors.error : AppColors.accentPrimary,
-      ),
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1E2230),
+          elevation: 0,
+          margin: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.lg,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            side: BorderSide(
+              color: isError ? AppColors.error : AppColors.borderSubtle,
+            ),
+          ),
+          duration: Duration(seconds: isError ? 3 : 2),
+          content: Row(
+            children: [
+              Icon(
+                isError
+                    ? Icons.error_outline_rounded
+                    : Icons.photo_camera_rounded,
+                color: isError ? AppColors.error : AppColors.accentPrimary,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  msg,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
   }
 
   void _showSuccessFeedback(String msg) {
@@ -390,6 +474,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                   ),
+                  if (user?.photoUrl != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Center(
+                      child: GestureDetector(
+                        onTap: _isSaving ? null : _removeAvatar,
+                        child: Text(
+                          l.editProfileRemoveAvatar,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: AppSpacing.xl),
 

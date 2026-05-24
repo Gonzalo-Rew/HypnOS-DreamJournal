@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
@@ -12,6 +13,7 @@ import 'package:hypnos_dreamjournal/core/config/app_settings.dart';
 import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/gemini_service.dart';
+import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/shared/errors/error_messages.dart';
 import 'package:hypnos_dreamjournal/shared/utils/analysis_language_utils.dart';
@@ -371,9 +373,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
                         onPressed: () => Navigator.of(ctx).pop(false),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                            color: AppColors.borderSubtle.withValues(
-                              alpha: 0.8,
-                            ),
+                            color: AppColors.borderSubtle.withValues(alpha: 0.8),
                           ),
                           foregroundColor: AppColors.textSecondary,
                           shape: RoundedRectangleBorder(
@@ -460,9 +460,22 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
 
     final localeCode = forcedLocaleCode ?? _currentLocaleCode();
 
+    final analysisInput = await _resolveAnalysisInput();
+    if (!mounted) return;
+
+    if (analysisInput.analysisText.trim().isEmpty) {
+      setState(() {
+        _isAnalyzing = false;
+        if (!silent) {
+          _analysisError = _audioOnlyAnalysisUnavailableMessage();
+        }
+      });
+      return;
+    }
+
     final result = await GeminiService.instance.analyzeDream(
       title: _dream.title,
-      text: _dream.text,
+      text: analysisInput.analysisText,
       moodScore: _dream.moodScore,
       contextNotes: _dream.contextNotes,
       language: localeCode,
@@ -474,11 +487,11 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       final localizedAnalysis = AnalysisLanguageUtils.coerceToLocale(
         analysis: result.value,
         localeCode: localeCode,
-        dreamText: _dream.text,
+        dreamText: analysisInput.analysisText,
       );
       final alignedAnalysis = AnalysisLanguageUtils.alignWithDreamSignals(
         analysis: localizedAnalysis,
-        dreamText: _dream.text,
+        dreamText: analysisInput.analysisText,
         localeCode: localeCode,
       );
       final analysisMap = alignedAnalysis.toMap();
@@ -493,7 +506,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
         data: {
           'aiCategory': alignedAnalysis.category,
           'aiSummary': alignedAnalysis.summary,
-          'transcription': _dream.transcription,
+          'transcription': analysisInput.transcriptionForStorage,
           'aiAnalysis': analysisMap,
           'aiAnalysisByLanguage': mergedByLanguage,
         },
@@ -505,6 +518,7 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
         _dream = _dream.copyWith(
           aiCategory: alignedAnalysis.category,
           aiSummary: alignedAnalysis.summary,
+          transcription: analysisInput.transcriptionForStorage,
           aiAnalysis: analysisMap,
           aiAnalysisByLanguage: mergedByLanguage,
         );
@@ -514,13 +528,108 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
       setState(() {
         _isAnalyzing = false;
         if (!silent) {
-          _analysisError = AppError.handle(
-            failure.exception,
-            'DreamDetail.analyze',
-          );
+          _analysisError = _mapMorfeoAnalyzeError(failure.exception);
         }
       });
     }
+  }
+
+  String _audioOnlyAnalysisUnavailableMessage() {
+    final isEs = _currentLocaleCode() == 'es';
+    if (isEs) {
+      return 'No se pudo obtener una transcripción del audio para analizar este sueño.';
+    }
+
+    return 'Could not obtain an audio transcription to analyze this dream.';
+  }
+
+  String _mapMorfeoAnalyzeError(Exception error) {
+    final l = AppLocalizations.of(context);
+    final message = error is AppException
+        ? error.message.toLowerCase()
+        : error.toString().toLowerCase();
+
+    if (message.contains('resource-exhausted') ||
+        message.contains('quota') ||
+        message.contains('429') ||
+        message.contains('prepayment credits are depleted')) {
+      return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+    }
+
+    if (message.contains('unavailable') || message.contains('timeout')) {
+      return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+    }
+
+    if (message.contains('no json object found') ||
+        message.contains('invalid json') ||
+        message.contains('json')) {
+      return l.dreamAnalysisMorfeoAnalyzeUnexpectedMessage;
+    }
+
+    return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+  }
+
+  Future<_DreamAnalysisInput> _resolveAnalysisInput() async {
+    final text = _dream.text.trim();
+    var transcription = _dream.transcription?.trim() ?? '';
+
+    if (transcription.isEmpty && _dream.audioPaths.isNotEmpty) {
+      transcription = await _transcribeStoredAudios();
+      if (!mounted) {
+        return const _DreamAnalysisInput(analysisText: '');
+      }
+
+      if (transcription.isNotEmpty) {
+        setState(() {
+          _dream = _dream.copyWith(transcription: transcription);
+        });
+      }
+    }
+
+    final parts = <String>[];
+    if (text.isNotEmpty) {
+      parts.add(text);
+    }
+    if (transcription.isNotEmpty) {
+      parts.add(transcription);
+    }
+
+    final analysisText = parts.join('\n\n').trim();
+
+    return _DreamAnalysisInput(
+      analysisText: analysisText,
+      transcriptionForStorage: transcription.isNotEmpty
+          ? transcription
+          : _dream.transcription,
+    );
+  }
+
+  Future<String> _transcribeStoredAudios() async {
+    final parts = <String>[];
+
+    for (final audioUrl in _dream.audioPaths) {
+      try {
+        final ref = FirebaseStorage.instance.refFromURL(audioUrl);
+        final bytes = await ref.getData(12 * 1024 * 1024);
+        if (bytes == null || bytes.isEmpty) {
+          continue;
+        }
+
+        final transcriptionResult = await GeminiService.instance
+            .transcribeAudioBytes(audioBytes: bytes);
+
+        if (transcriptionResult is Success<String>) {
+          final text = transcriptionResult.value.trim();
+          if (text.isNotEmpty) {
+            parts.add(text);
+          }
+        }
+      } catch (_) {
+        // Best-effort transcription for legacy audio-only dreams.
+      }
+    }
+
+    return parts.join('\n\n').trim();
   }
 
   void _shareDream() {
@@ -561,9 +670,9 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
             Text(
               _dream.title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Row(
@@ -712,6 +821,16 @@ class _DreamDetailScreenState extends State<DreamDetailScreen> {
   }
 }
 
+class _DreamAnalysisInput {
+  const _DreamAnalysisInput({
+    required this.analysisText,
+    this.transcriptionForStorage,
+  });
+
+  final String analysisText;
+  final String? transcriptionForStorage;
+}
+
 /// Widget that displays the AI analysis section in the dream detail.
 class _AiAnalysisSection extends StatelessWidget {
   const _AiAnalysisSection({
@@ -731,20 +850,22 @@ class _AiAnalysisSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
+    final isEs = Localizations.localeOf(context)
+        .languageCode
+        .toLowerCase()
+        .startsWith('es');
+    final disclaimerText = isEs
+        ? 'Aviso: el contenido generado por IA puede contener errores o interpretaciones imprecisas.'
+        : 'Notice: AI-generated content may contain mistakes or inaccurate interpretations.';
     final hasPreviousAnalysis =
-        analysis != null || (aiSummary != null && aiSummary!.trim().isNotEmpty);
-    final localeCode = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase();
+      analysis != null || (aiSummary != null && aiSummary!.trim().isNotEmpty);
+    final localeCode = Localizations.localeOf(context).languageCode.toLowerCase();
     final rerunLabel = localeCode.startsWith('es')
-        ? 'Volver a ejecutar análisis IA'
-        : 'Run AI analysis again';
+      ? 'Volver a ejecutar análisis IA'
+      : 'Run AI analysis again';
     final analyzeButtonLabel = isAnalyzing
-        ? l.dreamDetailAnalyzing
-        : hasPreviousAnalysis
+      ? l.dreamDetailAnalyzing
+      : hasPreviousAnalysis
         ? rerunLabel
         : l.dreamDetailAnalyzeButton;
 
@@ -761,9 +882,7 @@ class _AiAnalysisSection extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: AppColors.accentSecondary.withValues(alpha: 0.28),
-        ),
+        border: Border.all(color: AppColors.accentSecondary.withValues(alpha: 0.28)),
         boxShadow: [
           BoxShadow(
             color: AppColors.accentSecondary.withValues(alpha: 0.08),
@@ -782,16 +901,21 @@ class _AiAnalysisSection extends StatelessWidget {
                 width: 34,
                 height: 34,
                 child: Center(
-                  child: MorpheusOrb(size: 24, showBlueGlow: false),
+                  child: MorpheusOrb(
+                    size: 24,
+                    showBlueGlow: false,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 l.welcomeMorpheusTitle,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
               const Spacer(),
               Container(
@@ -806,9 +930,9 @@ class _AiAnalysisSection extends StatelessWidget {
                 child: Text(
                   analysis?.category ?? l.dreamDetailAiCategoryPending,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.accentSecondary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                        color: AppColors.accentSecondary,
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
               ),
             ],
@@ -899,9 +1023,9 @@ class _AiAnalysisSection extends StatelessWidget {
                     Text(
                       l.dreamDetailAiPsychNote,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.accentSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                            color: AppColors.accentSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -921,11 +1045,45 @@ class _AiAnalysisSection extends StatelessWidget {
               isEs
                   ? '${l.welcomeMorpheusTitle} todavía no ha analizado este sueño.'
                   : '${l.welcomeMorpheusTitle} has not analyzed this dream yet.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
             ),
           ],
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: AppColors.borderSubtle.withValues(alpha: 0.85),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    disclaimerText,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.35,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
             width: double.infinity,
@@ -995,9 +1153,9 @@ class _DreamNarrativeCard extends StatelessWidget {
               Text(
                 'Relato del sueño',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.3,
-                ),
+                      color: AppColors.textSecondary,
+                      letterSpacing: 0.3,
+                    ),
               ),
               const Spacer(),
               Container(
@@ -1111,17 +1269,17 @@ class _MetaLine extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: valueColor ?? AppColors.textPrimary,
-                  height: 1.35,
-                ),
+                      color: valueColor ?? AppColors.textPrimary,
+                      height: 1.35,
+                    ),
               ),
             ],
           ),
@@ -1132,7 +1290,10 @@ class _MetaLine extends StatelessWidget {
 }
 
 class _GeneratedVisualizationCard extends StatelessWidget {
-  const _GeneratedVisualizationCard({required this.label, required this.title});
+  const _GeneratedVisualizationCard({
+    required this.label,
+    required this.title,
+  });
 
   final String label;
   final String title;
@@ -1140,16 +1301,15 @@ class _GeneratedVisualizationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isEs = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
+    final isEs = Localizations.localeOf(context)
+        .languageCode
+        .toLowerCase()
+        .startsWith('es');
     return Container(
       height: 190,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: AppColors.accentSecondary.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: AppColors.accentSecondary.withValues(alpha: 0.22)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.24),
@@ -1216,9 +1376,9 @@ class _GeneratedVisualizationCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1226,9 +1386,9 @@ class _GeneratedVisualizationCard extends StatelessWidget {
                       ? 'Una reinterpretación visual suave del sueño, en el lenguaje de ${l.welcomeMorpheusTitle}.'
                       : 'A soft visual reinterpretation of the dream, in ${l.welcomeMorpheusTitle}\'s language.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    height: 1.35,
-                  ),
+                        color: Colors.white.withValues(alpha: 0.8),
+                        height: 1.35,
+                      ),
                 ),
               ],
             ),
@@ -1312,9 +1472,7 @@ class _DetailActionButtons extends StatelessWidget {
             label: Text(shareLabel),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.accentSecondary,
-              side: BorderSide(
-                color: AppColors.accentSecondary.withValues(alpha: 0.6),
-              ),
+              side: BorderSide(color: AppColors.accentSecondary.withValues(alpha: 0.6)),
             ),
           ),
         ),
@@ -1351,17 +1509,17 @@ class _AnalysisFieldCard extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.accentSecondary,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: AppColors.accentSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 2),
             Text(
               value,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textPrimary,
-                height: 1.35,
-              ),
+                    color: AppColors.textPrimary,
+                    height: 1.35,
+                  ),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
             ),

@@ -44,6 +44,8 @@
   "homeCreateDream": "Nuevo sueño",
   "homeListDreams": "Ver sueños",
   "homeProfile": "Perfil",
+  "homeTodayLabel": "Hoy",
+  "homeNoDreamsToday": "No hay ningún sueño registrado hoy",
 
   "dreamsListTitle": "Sueños",
   "dreamsListEmpty": "Todavía no hay sueños.",
@@ -195,7 +197,7 @@
   "settingsSectionPreferences": "PREFERENCIAS",
   "settingsSectionAi": "INTELIGENCIA ARTIFICIAL",
   "settingsAiTitle": "Morfeo - Análisis con IA",
-  "settingsAiSubtitle": "Activo · gestionado por el servidor",
+  "settingsAiSubtitle": "Activo",
   "settingsSectionLegal": "LEGAL",
   "settingsPrivacyPolicy": "Política de privacidad",
   "settingsTermsAndConditions": "Términos y condiciones",
@@ -277,10 +279,13 @@
   "dashboardCorrelationTitle": "CORRELACIÓN",
 
   "editProfileAvatarUpdated": "Avatar actualizado",
+  "editProfileAvatarRemoved": "Avatar eliminado",
+  "editProfileAvatarRemoveError": "Error al eliminar avatar",
   "editProfileAvatarUploadError": "Error al subir avatar",
   "editProfileNameValidationError": "No se pudo validar el nombre",
   "editProfileUpdateFailed": "Error al actualizar el perfil",
   "editProfileChangeAvatar": "Cambiar avatar",
+  "editProfileRemoveAvatar": "Quitar avatar",
   "editProfileUsername": "Nombre de usuario",
 
   "profilePublishedDreams": "Sueños publicados",

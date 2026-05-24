@@ -23,6 +23,10 @@ class AppConstants {
   static const int dreamTitleMaxLength = 100;
   static const int dreamDescriptionMaxLength = 5000;
 
+  // Legal document versions used for explicit consent tracking
+  static const String termsVersion = '2026-05-24';
+  static const String privacyVersion = '2026-05-24';
+
   // Pagination
   static const int dreamsPageSize = 50;
   static const int insightsPageSize = 20;

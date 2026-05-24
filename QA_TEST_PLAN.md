@@ -22,7 +22,7 @@
 | F01-10 | Rellenar todos los campos correctamente → pulsar **"Crear cuenta"** | Cuenta creada; se navega a la pantalla principal (Home) |✅| A/I |
 | F01-11 | Intentar registrar con un correo ya existente | Error visible: "El correo ya está en uso" o similar |✅| A/I |
 | F01-12 | Pulsar **"Continuar con Google"** | Se abre el selector de cuenta Google; al elegir, se navega al Home |✅| A |
-| F01-13 | Pulsar **"Continuar con Apple"** | Se abre el diálogo de Apple ID; al completar, se navega al Home |❌| I |
+| F01-13 | Pulsar **"Continuar con Apple"** | Se abre el diálogo de Apple ID; al completar, se navega al Home |✅| I |
 
 ---
 
@@ -37,7 +37,7 @@
 | F02-05 | Credenciales correctas | Navega al Home |✅| A/I |
 | F02-06 | Pulsar **"¿Olvidaste tu contraseña?"** → introducir correo → enviar | Toast/mensaje: "Correo de recuperación enviado" |✅| A/I |
 | F02-07 | Pulsar **"¿No tienes cuenta? Regístrate"** | Navega a la pantalla de registro |✅| A/I |
-| F02-08 | Activar biometría en ajustes → cerrar sesión → abrir app de nuevo | Se pide autenticación biométrica y, si se acepta, entra directamente |❌| A/I |
+| F02-08 | Activar biometría en ajustes → cerrar sesión → abrir app de nuevo | Se pide autenticación biométrica y, si se acepta, entra directamente |✅| A/I |
 
 ---
 
@@ -53,9 +53,9 @@
 | F03-06 | Mover el deslizador de estado de ánimo | El valor numérico del ánimo se actualiza en pantalla |✅| A/I |
 | F03-07 | Pulsar **"Agregar audio"** → grabar 3 segundos → detener | El audio aparece adjunto al formulario |✅| A/I |
 | F03-08 | Crear sueño solo con audio (sin texto) → guardar | Sueño guardado con el audio; descripción vacía permitida |✅| A/I |
-| F03-09 | Marcar la opción de **"Publicar"** o activar visibilidad pública → guardar | Sueño creado y visible en el feed público |❌| A/I |
-| F03-10 | Marcar la opción **"Solo seguidores"** → guardar | Solo usuarios que te siguen pueden ver el sueño |❌| A/I |
-| F03-11 | Pulsar **"Analizar con Morfeo"** (si está disponible) | Se muestra un indicador de carga; tras unos segundos aparecen categoría, resumen y etiquetas IA |⚠️| A/I |
+| F03-09 | Marcar la opción de **"Publicar"** o activar visibilidad pública → guardar | Sueño creado y visible en el feed público |✅| A/I |
+| F03-10 | Marcar la opción **"Solo seguidores"** → guardar | Solo usuarios que te siguen pueden ver el sueño |✅| A/I |
+| F03-11 | Pulsar **"Analizar con Morfeo"** (si está disponible) | Se muestra un indicador de carga; tras unos segundos aparecen categoría, resumen y etiquetas IA |✅| A/I |
 
 ---
 
@@ -64,14 +64,14 @@
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
 | F04-01 | Desde la lista de sueños → pulsar un sueño → icono **editar** | Se abre el formulario en modo edición con los datos pre-rellenados |✅| A/I |
-| F04-02 | Modificar el título → pulsar **"Guardar"** en el AppBar | El sueño se actualiza; la lista muestra el nuevo título | | A/I |
-| F04-03 | Borrar completamente el título → pulsar **"Guardar"** | Error: título obligatorio | | A/I |
-| F04-04 | En modo edición, borrar la descripción y guardar | Se guarda correctamente (descripción no es obligatoria al editar) | | A/I |
-| F04-05 | Cambiar la fecha del sueño | La nueva fecha se guarda correctamente | | A/I |
-| F04-06 | Cambiar el estado de ánimo | Se guarda el nuevo valor numérico | | A/I |
-| F04-07 | Si el sueño tiene análisis IA, abrir modo edición | Se muestra la sección `_AiTagsPreview` con la categoría, resumen y etiquetas reales | | A/I |
-| F04-08 | Si el sueño NO tiene análisis IA, abrir modo edición | No se muestra ningún placeholder ni sección IA | | A/I |
-| F04-09 | Cambiar visibilidad de privado a público en edición → guardar | El sueño ahora aparece en `publicDreams`; el disclaimer muestra el texto correcto | | A/I |
+| F04-02 | Modificar el título → pulsar **"Guardar"** en el AppBar | El sueño se actualiza; la lista muestra el nuevo título |✅| A/I |
+| F04-03 | Borrar completamente el título → pulsar **"Guardar"** | Error: título obligatorio |✅| A/I |
+| F04-04 | En modo edición, borrar la descripción y guardar | Se guarda correctamente (descripción no es obligatoria al editar) |✅| A/I |
+| F04-05 | Cambiar la fecha del sueño | La nueva fecha se guarda correctamente |✅| A/I |
+| F04-06 | Cambiar el estado de ánimo | Se guarda el nuevo valor numérico |✅| A/I |
+| F04-07 | Si el sueño tiene análisis IA, abrir modo edición | Se muestra la sección `_AiTagsPreview` con la categoría, resumen y etiquetas reales |✅| A/I |
+| F04-08 | Si el sueño NO tiene análisis IA, abrir modo edición | No se muestra ningún placeholder ni sección IA |✅| A/I |
+| F04-09 | Cambiar visibilidad de privado a público en edición → guardar | El sueño ahora aparece en `publicDreams`; el disclaimer muestra el texto correcto |✅| A/I |
 
 ---
 
@@ -90,14 +90,12 @@
 
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
-| F06-01 | Abrir la pestaña **Home** | Se muestra el feed con sueños propios y de usuarios que sigo |⚠️| A/I |
-| F06-02 | Hacer scroll hasta el final del feed | Se cargan más sueños (paginación) o se muestra "Sin más sueños" | | A/I |
+| F06-01 | Abrir la pestaña **Home** | Se muestra el feed con sueños propios y de usuarios que sigo |✅| A/I |
+| F06-02 | Hacer scroll hasta el final del feed | Se cargan más sueños (paginación) o se muestra "Sin más sueños" |✅| A/I |
 | F06-03 | Pulsar un sueño del feed | Se abre el detalle del sueño con título, descripción, etiquetas, fecha |✅| A/I |
-| F06-04 | Dar **like** a un sueño del feed | El contador de likes aumenta en 1; el icono cambia a estado activo |❌| A/I |
-| F06-05 | Quitar el like | El contador baja en 1; icono vuelve a inactivo | | A/I |
-| F06-06 | Pulsar el icono de comentarios | Se abre la sección/hoja de comentarios | | A/I |
-| F06-07 | Escribir y enviar un comentario | El comentario aparece en la lista; contador aumenta | | A/I |
-| F06-08 | Pulsar en el avatar/nombre del autor de un sueño | Navega al perfil público del autor | | A/I |
+| F06-04 | Dar **like** a un sueño del feed | El contador de likes aumenta en 1; el icono cambia a estado activo |✅| A/I |
+| F06-05 | Quitar el like | El contador baja en 1; icono vuelve a inactivo |✅| A/I |
+| F06-08 | Pulsar en el avatar/nombre del autor de un sueño | Navega al perfil público del autor |✅| A/I |
 
 ---
 
@@ -120,10 +118,10 @@
 | F08-01 | Abrir perfil de un usuario que no sigo | Botón muestra **"Seguir"** (relleno, color acento) |✅| A/I |
 | F08-02 | Pulsar **"Seguir"** | Botón cambia a **"Solicitado"** (gris, sin relleno); se crea doc en `followRequests` |✅| A/I |
 | F08-03 | Pulsar **"Solicitado"** | Botón vuelve a **"Seguir"**; se cancela la solicitud |✅| A/I |
-| F08-04 | El dueño del perfil acepta la solicitud → volver al perfil | Botón cambia a **"Siguiendo"** |❌| A/I |
-| F08-05 | Pulsar **"Siguiendo"** | Se deja de seguir; botón vuelve a **"Seguir"** | | A/I |
-| F08-06 | Desde el perfil público, ver la lista de sueños públicos | Se muestran solo los sueños publicados del usuario | | A/I |
-| F08-07 | Contadores de seguidores/seguidos visibles | Los números coinciden con los valores reales | | A/I |
+| F08-04 | El dueño del perfil acepta la solicitud → volver al perfil | Botón cambia a **"Siguiendo"** |✅| A/I |
+| F08-05 | Pulsar **"Siguiendo"** | Se deja de seguir; botón vuelve a **"Seguir"** |✅| A/I |
+| F08-06 | Desde el perfil público, ver la lista de sueños públicos | Se muestran solo los sueños publicados del usuario |✅| A/I |
+| F08-07 | Contadores de seguidores/seguidos visibles | Los números coinciden con los valores reales |✅| A/I |
 
 ---
 
@@ -134,7 +132,7 @@
 | F09-01 | Ir a **Mi perfil** → icono de personas en la barra superior | Navega a la pantalla "Solicitudes de seguimiento" |✅| A/I |
 | F09-02 | Sin solicitudes pendientes | Se muestra estado vacío: "Sin solicitudes pendientes" |✅| A/I |
 | F09-03 | Con al menos una solicitud entrante | Se muestra la lista con avatar, nombre del solicitante y botones Aceptar/Rechazar |✅| A/I |
-| F09-04 | Pulsar **"Aceptar"** en una solicitud | La solicitud desaparece de la lista; el solicitante aparece en seguidores |❌| A/I |
+| F09-04 | Pulsar **"Aceptar"** en una solicitud | La solicitud desaparece de la lista; el solicitante aparece en seguidores |✅| A/I |
 | F09-05 | Pulsar **"Rechazar"** en una solicitud | La solicitud desaparece de la lista; el contador de seguidores no cambia |✅| A/I |
 | F09-06 | Badge numérico en el icono del perfil | Muestra el número de solicitudes pendientes; desaparece cuando llega a 0 |✅| A/I |
 | F09-07 | Badge con más de 9 solicitudes | Muestra **"9+"** en el badge | | A/I |
@@ -147,7 +145,7 @@
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
 | F10-01 | Ir a la pestaña **Perfil** | Se muestra nombre, foto, bio, contadores de sueños/seguidores/seguidos |✅| A/I |
-| F10-02 | Pestaña de sueños del perfil | Lista solo los sueños propios (incluyendo privados) | | A/I |
+| F10-02 | Pestaña de sueños del perfil | Lista solo los sueños propios (incluyendo privados) |✅| A/I |
 | F10-03 | Badge de solicitudes actualizado en tiempo real | Al recibir nueva solicitud, el badge aumenta sin reiniciar la app |✅| A/I |
 
 ---
@@ -169,8 +167,8 @@
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
 | F12-01 | Ajustes → **"Cuenta y seguridad"** | Se muestran opciones de cambio de contraseña, biometría y eliminar cuenta |✅| A/I |
-| F12-02 | Activar biometría (si no estaba activa) | Se pide autenticación biométrica; al aceptar, queda activada |❌| A/I |
-| F12-03 | Desactivar biometría | Se desactiva sin pedir autenticación |❌| A/I |
+| F12-02 | Activar biometría (si no estaba activa) | Se pide autenticación biométrica; al aceptar, queda activada |✅| A/I |
+| F12-03 | Desactivar biometría | Se desactiva sin pedir autenticación |✅| A/I |
 | F12-04 | Pulsar **"Eliminar cuenta"** | Se muestra un diálogo de confirmación con aviso de pérdida de datos |✅| A/I |
 | F12-05 | Confirmar eliminación de cuenta | La sesión se cierra y vuelve a la pantalla de bienvenida |✅| A/I |
 | F12-06 | Cerrar sesión | Vuelve a la pantalla de bienvenida |✅| A/I |
@@ -195,11 +193,11 @@
 
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
-| F14-01 | Primera vez que se abre la app con la cuenta activa | Se solicita permiso de notificaciones (solo iOS); el token FCM se guarda en Firestore bajo `users/{uid}.fcmToken` | | I |
-| F14-02 | Usuario A sigue a usuario B (solicitud aceptada) → B publica un sueño con visibilidad "público" | A recibe una notificación push con el texto: "B publicó un sueño" | | A/I |
-| F14-03 | Usuario A tiene **"Sueños de seguidos"** desactivado → B publica | A NO recibe la notificación | | A/I |
-| F14-04 | Pulsar la notificación push | La app abre o navega al sueño publicado / perfil del autor | | A/I |
-| F14-05 | App en primer plano cuando llega la notificación | Se muestra banner o snackbar dentro de la app | | A/I |
+| F14-01 | Primera vez que se abre la app con la cuenta activa | Se solicita permiso de notificaciones (solo iOS); el token FCM se guarda en Firestore bajo `users/{uid}.fcmToken` |✅| I |
+| F14-02 | Usuario A sigue a usuario B (solicitud aceptada) → B publica un sueño con visibilidad "público" | A recibe una notificación push con el texto: "B publicó un sueño" |✅| A/I |
+| F14-03 | Usuario A tiene **"Sueños de seguidos"** desactivado → B publica | A NO recibe la notificación |✅| A/I |
+| F14-04 | Pulsar la notificación push | La app abre o navega al sueño publicado / perfil del autor |✅| A/I |
+| F14-05 | App en primer plano cuando llega la notificación | Se muestra banner o snackbar dentro de la app |✅| A/I |
 
 ---
 
@@ -231,14 +229,14 @@
 
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
-| F17-01 | Crear sueño con texto → guardar → esperar análisis automático (o pulsarlo manualmente) | Aparece la sección Morfeo con: categoría, resumen y etiquetas semánticas | | A/I |
-| F17-02 | Abrir en modo edición un sueño con análisis | Se muestra `_AiTagsPreview` con la categoría, resumen y etiquetas del análisis existente | | A/I |
-| F17-03 | Abrir en modo edición un sueño sin análisis | La sección de IA no aparece (ni placeholder ni preview) | | A/I |
-| F17-04 | Las etiquetas mood: no aparecen en la vista pública como etiquetas | Las etiquetas que empiezan por `mood:` se filtran; solo se muestran etiquetas semánticas | | A/I |
-| F17-05 | App en español → analizar sueño real (por ejemplo Sueño 1 o 7) | El resumen y la nota psicológica aparecen en español, no en inglés | | A/I |
-| F17-06 | App en English → analizar el mismo sueño | El resumen y la nota psicológica aparecen en inglés | | A/I |
-| F17-07 | Analizar un texto incoherente (por ejemplo 100 caracteres de `aaaa...`) | Morfeo muestra una lectura de baja calidad explícita, pero en el idioma de la app; no devuelve una pantalla vacía | | A/I |
-| F17-08 | Analizar sueños con temas distintos (agua, caída, persecución, vuelo, dientes, examen) | El resumen y la nota cambian según el patrón del sueño, no se repite el mismo texto genérico | | A/I |
+| F17-01 | Crear sueño con texto → guardar → esperar análisis automático (o pulsarlo manualmente) | Aparece la sección Morfeo con: categoría, resumen y etiquetas semánticas |✅| A/I |
+| F17-02 | Abrir en modo edición un sueño con análisis | Se muestra `_AiTagsPreview` con la categoría, resumen y etiquetas del análisis existente |✅| A/I |
+| F17-03 | Abrir en modo edición un sueño sin análisis | La sección de IA no aparece (ni placeholder ni preview) |✅| A/I |
+| F17-04 | Las etiquetas mood: no aparecen en la vista pública como etiquetas | Las etiquetas que empiezan por `mood:` se filtran; solo se muestran etiquetas semánticas |✅| A/I |
+| F17-05 | App en español → analizar sueño real (por ejemplo Sueño 1 o 7) | El resumen y la nota psicológica aparecen en español, no en inglés |✅| A/I |
+| F17-06 | App en English → analizar el mismo sueño | El resumen y la nota psicológica aparecen en inglés |✅| A/I |
+| F17-07 | Analizar un texto incoherente (por ejemplo 100 caracteres de `aaaa...`) | Morfeo muestra una lectura de baja calidad explícita, pero en el idioma de la app; no devuelve una pantalla vacía |✅| A/I |
+| F17-08 | Analizar sueños con temas distintos (agua, caída, persecución, vuelo, dientes, examen) | El resumen y la nota cambian según el patrón del sueño, no se repite el mismo texto genérico |✅| A/I |
 
 ---
 
@@ -258,9 +256,9 @@
 
 | ID | Pasos | Resultado esperado | Resultado | Plat. |
 |----|-------|--------------------|-----------|-------|
-| F19-01 | Navegar a la pestaña **Dashboard** | Se muestran estadísticas: total de sueños, promedio de ánimo, distribución de emociones | | A/I |
-| F19-02 | Sin sueños registrados | Se muestra estado vacío con mensaje motivacional | | A/I |
-| F19-03 | Con varios sueños | Los gráficos reflejan los datos reales del usuario | | A/I |
+| F19-01 | Navegar a la pestaña **Dashboard** | Se muestran estadísticas: total de sueños, promedio de ánimo, distribución de emociones |✅| A/I |
+| F19-02 | Sin sueños registrados | Se muestra estado vacío con mensaje motivacional |✅| A/I |
+| F19-03 | Con varios sueños | Los gráficos reflejan los datos reales del usuario |✅| A/I |
 
 ---
 

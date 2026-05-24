@@ -2,7 +2,7 @@
 name: "Gestor de Agentes Copilot"
 description: "Usa este agente cuando quieras crear, ajustar, estandarizar o depurar agentes de GitHub Copilot (.agent.md) segun instrucciones del usuario. Keywords: agentes, agent, copilot, .agent.md, personalizacion, custom agent, frontmatter, tools, handoffs, instrucciones, coordinacion."
 tools: [read, edit, search, todo, agent]
-agents: ["Infra Mobile Firebase AI", "Flutter UX App Agent", "Firebase Backend Security Agent", "QA Release Agent", "Data Insights Agent"]
+agents: ["Infra Mobile Firebase AI", "Flutter UX App Agent", "Firebase Backend Security Agent", "QA Release Agent", "Data Insights Agent", "Project Memory Documentation Agent"]
 argument-hint: "Indica que agentes quieres crear o modificar, y que comportamiento deben tener."
 user-invocable: true
 disable-model-invocation: false

@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart' as fa;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:hypnos_dreamjournal/core/constants/app_constants.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/data/models/user_model.dart' as model;
@@ -16,6 +18,10 @@ abstract class AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    required DateTime termsAcceptedAt,
+    required DateTime privacyAcceptedAt,
+    required String termsVersion,
+    required String privacyVersion,
   });
 
   /// Sign in with email and password
@@ -49,6 +55,7 @@ abstract class AuthRepository {
   Future<Result<void>> updateUserProfile({
     String? displayName,
     String? photoUrl,
+    bool clearPhotoUrl = false,
     bool? aiEnabled,
     String? timezone,
     bool? notificationsEnabled,
@@ -68,6 +75,10 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    required DateTime termsAcceptedAt,
+    required DateTime privacyAcceptedAt,
+    required String termsVersion,
+    required String privacyVersion,
   }) async {
     fa.User? createdAuthUser;
     try {
@@ -80,6 +91,13 @@ class AuthRepositoryImpl implements AuthRepository {
         throw ValidationException(
           message: 'Password must be at least 8 characters',
           field: 'password',
+        );
+      }
+
+      if (termsVersion.trim().isEmpty || privacyVersion.trim().isEmpty) {
+        throw ValidationException(
+          message: 'legal_consent_missing',
+          field: 'legalConsent',
         );
       }
 
@@ -115,6 +133,10 @@ class AuthRepositoryImpl implements AuthRepository {
           timezone: 'UTC',
           notificationsEnabled: true,
           notificationTime: '08:00',
+          termsAcceptedAt: termsAcceptedAt,
+          privacyAcceptedAt: privacyAcceptedAt,
+          termsVersion: termsVersion,
+          privacyVersion: privacyVersion,
         );
         tx.set(usernameRef, {'uid': uid, 'displayName': displayName.trim()});
         tx.set(userRef, user.toFirestore());
@@ -341,6 +363,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Result<void>> updateUserProfile({
     String? displayName,
     String? photoUrl,
+    bool clearPhotoUrl = false,
     bool? aiEnabled,
     String? timezone,
     bool? notificationsEnabled,
@@ -360,16 +383,24 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+      final userData = userDoc.data() ?? <String, dynamic>{};
+      final storedDisplayName = userData['displayName'] as String?;
+      final effectiveDisplayName = displayName?.trim().isNotEmpty == true
+          ? displayName!.trim()
+          : (storedDisplayName?.trim().isNotEmpty == true
+                ? storedDisplayName!.trim()
+                : (currentUser.displayName?.trim().isNotEmpty == true
+                      ? currentUser.displayName!.trim()
+                      : (currentUser.email?.split('@').first)));
+
       // ── Handle displayName uniqueness ────────────────────────────────────
       if (displayName != null) {
         final newKey = displayName.trim().toLowerCase();
-
-        // Fetch the current displayName to know the old key
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
-        final oldName = userDoc.data()?['displayName'] as String? ?? '';
+        final oldName = storedDisplayName ?? '';
         final oldKey = oldName.toLowerCase();
 
         if (newKey != oldKey) {
@@ -406,14 +437,26 @@ class AuthRepositoryImpl implements AuthRepository {
         await currentUser.updateDisplayName(displayName.trim());
       }
 
-      if (photoUrl != null) {
+      if (clearPhotoUrl) {
+        await currentUser.updatePhotoURL(null);
+      } else if (photoUrl != null) {
         await currentUser.updatePhotoURL(photoUrl);
       }
 
       // Update Firestore document
       final updateData = <String, dynamic>{};
-      if (displayName != null) updateData['displayName'] = displayName.trim();
-      if (photoUrl != null) updateData['photoUrl'] = photoUrl;
+      if (displayName != null) {
+        updateData['displayName'] = displayName.trim();
+      } else if (storedDisplayName == null &&
+          effectiveDisplayName != null &&
+          effectiveDisplayName.isNotEmpty) {
+        updateData['displayName'] = effectiveDisplayName;
+      }
+      if (clearPhotoUrl) {
+        updateData['photoUrl'] = FieldValue.delete();
+      } else if (photoUrl != null) {
+        updateData['photoUrl'] = photoUrl;
+      }
       if (aiEnabled != null) updateData['aiEnabled'] = aiEnabled;
       if (timezone != null) updateData['timezone'] = timezone;
       if (notificationsEnabled != null) {
@@ -488,11 +531,24 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> signInWithApple() async {
     try {
+      final webAuthOptions = _buildAppleWebAuthenticationOptions();
+      if (_requiresAppleWebAuthenticationOptions && webAuthOptions == null) {
+        debugPrint(
+          '[Auth] signInWithApple missing Android/Web Apple config. '
+          'Set --dart-define=APPLE_SERVICE_ID=... and optionally '
+          '--dart-define=APPLE_REDIRECT_URI=...',
+        );
+        return Failure(
+          AuthException(message: 'apple-failed', code: 'apple-failed'),
+        );
+      }
+
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        webAuthenticationOptions: webAuthOptions,
       );
       final oauthCredential = fa.OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
@@ -542,6 +598,44 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  bool get _requiresAppleWebAuthenticationOptions {
+    if (kIsWeb) return true;
+    return defaultTargetPlatform == TargetPlatform.android;
+  }
+
+  WebAuthenticationOptions? _buildAppleWebAuthenticationOptions() {
+    if (!_requiresAppleWebAuthenticationOptions) return null;
+
+    const configuredClientId = String.fromEnvironment('APPLE_SERVICE_ID');
+    const configuredRedirectUri = String.fromEnvironment('APPLE_REDIRECT_URI');
+
+    final clientId = configuredClientId.trim();
+    if (clientId.isEmpty) return null;
+
+    final redirectUriText = configuredRedirectUri.trim();
+    Uri? redirectUri;
+
+    if (redirectUriText.isNotEmpty) {
+      redirectUri = Uri.tryParse(redirectUriText);
+    }
+
+    if (redirectUri == null) {
+      final projectId = Firebase.app().options.projectId;
+      if (projectId.isNotEmpty) {
+        redirectUri = Uri.parse(
+          'https://$projectId.firebaseapp.com/__/auth/handler',
+        );
+      }
+    }
+
+    if (redirectUri == null) return null;
+
+    return WebAuthenticationOptions(
+      clientId: clientId,
+      redirectUri: redirectUri,
+    );
+  }
+
   /// Creates a Firestore user document on first OAuth sign-in.
   /// If the document already exists the method is a no-op.
   Future<void> _ensureUserDocument(
@@ -568,6 +662,10 @@ class AuthRepositoryImpl implements AuthRepository {
       timezone: 'UTC',
       notificationsEnabled: true,
       notificationTime: '08:00',
+      termsAcceptedAt: DateTime.now(),
+      privacyAcceptedAt: DateTime.now(),
+      termsVersion: AppConstants.termsVersion,
+      privacyVersion: AppConstants.privacyVersion,
     );
     await _firestore.collection('users').doc(user.id).set(user.toFirestore());
   }

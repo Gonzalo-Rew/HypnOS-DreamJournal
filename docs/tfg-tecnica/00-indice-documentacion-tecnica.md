@@ -1,11 +1,11 @@
-# Paquete de Documentacion Tecnica TFG
+# Paquete de Documentación Técnica TFG
 
 Estado: Borrador inicial
-Idioma: Espanol
-Estilo de redaccion: Tecnico entendible (nivel 6-7)
+Idioma: Español
+Estilo de redacción: Técnico entendible (nivel 6-7)
 
 ## Objetivo
-Este paquete contiene la documentacion tecnica separada de la memoria principal.
+Este paquete contiene la documentación técnica separada de la memoria principal.
 La memoria sintetiza decisiones y resultados, mientras que estos documentos guardan el detalle verificable.
 
 ## Estructura del paquete
@@ -20,9 +20,9 @@ La memoria sintetiza decisiones y resultados, mientras que estos documentos guar
 9. [A02-matriz-trazabilidad-requisito-prueba.md](A02-matriz-trazabilidad-requisito-prueba.md)
 
 ## Criterios de calidad del paquete
-- Coherencia con el codigo y configuracion actual del repositorio.
-- Trazabilidad de afirmaciones: cada apartado tecnico debe apuntar a evidencia.
-- Terminologia consistente entre memoria, anexos y artefactos de proyecto.
+- Coherencia con el código y configuración actual del repositorio.
+- Trazabilidad de afirmaciones: cada apartado técnico debe apuntar a evidencia.
+- Terminología consistente entre memoria, anexos y artefactos de proyecto.
 - No duplicar contenido narrativo de la memoria principal.
 
 ## Fuentes base del repositorio

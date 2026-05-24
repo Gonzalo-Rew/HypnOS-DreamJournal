@@ -1,12 +1,12 @@
-# Documento 01 - Arquitectura Tecnica End-to-End
+# Documento 01 - Arquitectura Técnica End-to-End
 
 Estado: Borrador
 Responsable: Project Memory Documentation Agent
 
 ## 1. Alcance
-Describir la arquitectura tecnica real de la solucion: app Flutter, backend Firebase, Cloud Functions e integracion IA.
+Describir la arquitectura técnica real de la solución: app Flutter, backend Firebase, Cloud Functions e integración IA.
 
-## 2. Vision general del sistema
+## 2. Visión general del sistema
 - Tipo de sistema.
 - Plataformas objetivo.
 - Componentes principales.
@@ -17,24 +17,24 @@ Describir la arquitectura tecnica real de la solucion: app Flutter, backend Fire
 ### 3.3 Capa de funciones cloud
 ### 3.4 Capa de datos
 
-## 4. Flujos tecnicos criticos
+## 4. Flujos técnicos críticos
 ### 4.1 Flujo de autenticacion
 ### 4.2 Flujo de registro y gestion de suenos
 ### 4.3 Flujo de analisis IA
 ### 4.4 Flujo social y notificaciones
 
-## 5. Decisiones tecnicas relevantes
+## 5. Decisiones técnicas relevantes
 - Decisiones de arquitectura.
 - Alternativas descartadas.
 - Impacto en mantenibilidad y escalabilidad.
 
-## 6. Limitaciones tecnicas actuales
-- Deuda tecnica conocida.
+## 6. Limitaciones técnicas actuales
+- Deuda técnica conocida.
 - Restricciones de plataforma/servicio.
 
 ## 7. Evidencias
-- Codigo y rutas de archivos clave.
-- Version objetivo (tag/build).
+- Código y rutas de archivos clave.
+- Versión objetivo (tag/build).
 
 ## 8. Referencias internas
 - [shared-app-context.md](../../.github/agents/contexts/shared/shared-app-context.md)

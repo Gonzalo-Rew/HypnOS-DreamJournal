@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -144,6 +145,14 @@ class GeminiService {
   // Always ready — no client-side initialisation needed.
   bool get isInitialized => true;
 
+  String _previewForLog(String value, {int maxChars = 320}) {
+    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.length <= maxChars) {
+      return compact;
+    }
+    return '${compact.substring(0, maxChars)}...';
+  }
+
   /// Analyze a dream entry and return structured insights.
   Future<Result<DreamAnalysis>> analyzeDream({
     required String title,
@@ -159,6 +168,11 @@ class GeminiService {
     }
 
     try {
+      developer.log(
+        'analyzeDream request: titleLength=${title.trim().length}, textLength=${text.trim().length}, moodScore=${moodScore ?? 'null'}, language=${language ?? 'null'}',
+        name: 'GeminiService',
+      );
+
       final callable = _functions.httpsCallable('analyzeDream');
       final response = await callable.call<Map<String, dynamic>>({
         'title': title,
@@ -170,15 +184,41 @@ class GeminiService {
 
       final rawText = response.data['analysisText'] as String?;
       if (rawText == null || rawText.isEmpty) {
+        developer.log(
+          'analyzeDream response empty: keys=${response.data.keys.toList()}',
+          name: 'GeminiService',
+          level: 900,
+        );
         return Failure(
           AppException(message: 'Morfeo returned an empty response'),
         );
       }
 
-      return Success(DreamAnalysis.fromText(rawText));
+      developer.log(
+        'analyzeDream raw response: length=${rawText.length}, preview=${_previewForLog(rawText)}',
+        name: 'GeminiService',
+      );
+
+      final parsed = DreamAnalysis.fromText(rawText);
+      developer.log(
+        'analyzeDream parsed: sentiment=${parsed.sentiment}, category=${parsed.category}, summaryLength=${parsed.summary.length}, psychNoteLength=${parsed.psychologicalNote.length}, emotions=${parsed.emotions.length}, characters=${parsed.characters.length}, places=${parsed.places.length}, themes=${parsed.themes.length}',
+        name: 'GeminiService',
+      );
+
+      return Success(parsed);
     } on FirebaseFunctionsException catch (e) {
+      developer.log(
+        'analyzeDream FirebaseFunctionsException: code=${e.code}, message=${e.message}, details=${e.details}',
+        name: 'GeminiService',
+        level: 1000,
+      );
       return Failure(AppException(message: 'Morfeo error: ${e.message}'));
     } catch (e) {
+      developer.log(
+        'analyzeDream unexpected error: $e',
+        name: 'GeminiService',
+        level: 1000,
+      );
       return Failure(AppException(message: 'Failed to analyze dream: $e'));
     }
   }

@@ -254,7 +254,6 @@ class _DreamSavedStepScreenState extends State<DreamSavedStepScreen> {
                       // ── Share section ──────────────────────────────
                       _ShareWorldSection(
                         title: l.dreamSavedShareSection,
-                        whatsappLabel: l.dreamSavedShareWhatsapp,
                         moreLabel: l.dreamSavedShareMore,
                         onShare: _shareViaSheet,
                       ),
@@ -622,39 +621,32 @@ class _PublishVisibilityCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                            ),
-                          ),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentPrimary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        audienceLabel,
+                        style: const TextStyle(
+                          color: AppColors.accentPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentPrimary.withValues(
-                              alpha: 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            audienceLabel,
-                            style: const TextStyle(
-                              color: AppColors.accentPrimary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -741,13 +733,11 @@ class _PublishVisibilityCard extends StatelessWidget {
 class _ShareWorldSection extends StatelessWidget {
   const _ShareWorldSection({
     required this.title,
-    required this.whatsappLabel,
     required this.moreLabel,
     required this.onShare,
   });
 
   final String title;
-  final String whatsappLabel;
   final String moreLabel;
   final VoidCallback onShare;
 
@@ -767,26 +757,11 @@ class _ShareWorldSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: _ShareTile(
-                icon: Icons.chat_rounded,
-                label: whatsappLabel,
-                color: AppColors.accentPrimary,
-                onTap: onShare,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _ShareTile(
-                icon: Icons.share_rounded,
-                label: moreLabel,
-                color: AppColors.accentPrimary,
-                onTap: onShare,
-              ),
-            ),
-          ],
+        _ShareTile(
+          icon: Icons.share_rounded,
+          label: moreLabel,
+          color: AppColors.accentPrimary,
+          onTap: onShare,
         ),
       ],
     );

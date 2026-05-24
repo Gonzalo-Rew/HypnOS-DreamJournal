@@ -4,7 +4,7 @@ Estado: Borrador
 Responsable: QA Release Agent
 
 ## 1. Objetivo
-Demostrar la validacion funcional y tecnica del sistema con trazabilidad a requisitos.
+Demostrar la validación funcional y técnica del sistema con trazabilidad a requisitos.
 
 ## 2. Estrategia QA
 ### 2.1 Niveles de prueba
@@ -20,9 +20,9 @@ Demostrar la validacion funcional y tecnica del sistema con trazabilidad a requi
 ### 4.2 Incidencias detectadas
 ### 4.3 Defectos por severidad
 
-## 5. Regresion y estabilidad
-- Casos criticos de regresion.
-- Resultado por version/build.
+## 5. Regresión y estabilidad
+- Casos críticos de regresión.
+- Resultado por versión/build.
 
 ## 6. Conclusiones de calidad
 - Estado de readiness.

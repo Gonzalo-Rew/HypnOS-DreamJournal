@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hypnos_dreamjournal/data/repositories/social_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
+import 'package:hypnos_dreamjournal/data/services/notification_service.dart';
 import 'package:hypnos_dreamjournal/firebase_options.dart';
 
 class AppBootstrapState {
@@ -29,8 +32,10 @@ Future<AppBootstrapState> appBootstrap() async {
     await FirebaseService.initialize(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await _initAppCheck();
     await _initGeminiService();
     await _initFcm();
+    await _initDailyReminders();
     return const AppBootstrapState(firebaseEnabled: true);
   } on UnsupportedError catch (e) {
     final warning =
@@ -51,6 +56,21 @@ Future<AppBootstrapState> appBootstrap() async {
   }
 }
 
+Future<void> _initAppCheck() async {
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode
+          ? AndroidProvider.debug
+          : AndroidProvider.playIntegrity,
+      appleProvider: kDebugMode
+          ? AppleProvider.debug
+          : AppleProvider.deviceCheck,
+    );
+  } catch (e) {
+    debugPrint('[AppCheck] Init error: $e');
+  }
+}
+
 /// Initialise GeminiService from the build-time key or a runtime-stored key.
 Future<void> _initGeminiService() async {
   // No-op: key lives in Firebase Secret Manager, Cloud Functions handle it.
@@ -60,6 +80,7 @@ Future<void> _initGeminiService() async {
 Future<void> _initFcm() async {
   try {
     final messaging = FirebaseMessaging.instance;
+    final localNotifications = FlutterLocalNotificationsPlugin();
 
     // Request permission (iOS; Android 13+ also respects this)
     final settings = await messaging.requestPermission(
@@ -68,13 +89,37 @@ Future<void> _initFcm() async {
       sound: true,
     );
 
+    await localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'social_notifications',
+            'Social notifications',
+            description:
+                'Notifications for dream publications and social activity.',
+            importance: Importance.defaultImportance,
+          ),
+        );
+
     if (settings.authorizationStatus == AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional) {
-      final token = await messaging.getToken();
-      final uid = FirebaseService.getCurrentUserId();
-      if (token != null && uid != null) {
-        await SocialRepositoryImpl().saveFcmToken(userId: uid, token: token);
+      Future<void> syncCurrentToken() async {
+        final token = await messaging.getToken();
+        final uid = FirebaseService.getCurrentUserId();
+        if (token != null && uid != null) {
+          await SocialRepositoryImpl().saveFcmToken(userId: uid, token: token);
+        }
       }
+
+      await syncCurrentToken();
+
+      FirebaseService.authStateChanges().listen((user) async {
+        if (user != null) {
+          await syncCurrentToken();
+        }
+      });
 
       // Refresh token whenever it rotates
       messaging.onTokenRefresh.listen((newToken) async {
@@ -89,5 +134,26 @@ Future<void> _initFcm() async {
     }
   } catch (e) {
     debugPrint('[FCM] Init error: $e');
+  }
+}
+
+Future<void> _initDailyReminders() async {
+  try {
+    await NotificationService.instance.initialize();
+
+    final currentUid = FirebaseService.getCurrentUserId();
+    if (currentUid != null) {
+      await NotificationService.instance.startForUser(currentUid);
+    }
+
+    FirebaseService.authStateChanges().listen((user) async {
+      if (user == null) {
+        await NotificationService.instance.stop();
+      } else {
+        await NotificationService.instance.startForUser(user.uid);
+      }
+    });
+  } catch (e) {
+    debugPrint('[Reminder] Init error: $e');
   }
 }

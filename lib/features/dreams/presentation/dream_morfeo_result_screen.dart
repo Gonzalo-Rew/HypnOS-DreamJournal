@@ -23,6 +23,12 @@ class DreamMorfeoResultScreen extends StatelessWidget {
     if (raw == null) return const [];
     return raw
         .map((e) => e.toString().trim())
+        .map(
+          (e) => e.replaceAll(
+            RegExp(r'\bsonador\b', caseSensitive: false),
+            'soñador',
+          ),
+        )
         .where((e) => e.isNotEmpty)
         .toList();
   }

@@ -12,7 +12,7 @@ import 'package:hypnos_dreamjournal/features/home/presentation/home_screen.dart'
 import 'package:hypnos_dreamjournal/features/profile/presentation/profile_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Root shell for authenticated users.
 /// Hosts the 4 main tabs with a glassmorphism bottom navigation bar
@@ -95,8 +95,11 @@ class _MainShellState extends State<MainShell> {
     final uid = FirebaseService.getCurrentUserId();
     if (uid == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('main_tutorial_seen_$uid') ?? false;
+    final doc = await FirebaseService.firestore
+        .collection('users')
+        .doc(uid)
+        .get();
+    final seen = doc.data()?['hasTutorialSeen'] as bool? ?? false;
     if (seen || !mounted) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -111,8 +114,9 @@ class _MainShellState extends State<MainShell> {
   Future<void> _finishTutorial() async {
     final uid = FirebaseService.getCurrentUserId();
     if (uid != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('main_tutorial_seen_$uid', true);
+      await FirebaseService.firestore.collection('users').doc(uid).update({
+        'hasTutorialSeen': true,
+      });
     }
     if (!mounted) return;
     setState(() => _showTutorial = false);

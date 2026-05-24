@@ -11,18 +11,43 @@ class AnalysisLanguageUtils {
     required String localeCode,
     required String dreamText,
   }) {
+    final normalizedAnalysis = _normalizeLegacyTerms(analysis);
     final normalizedLocale = normalizeLocaleCode(localeCode);
     final wantsSpanish = normalizedLocale == 'es';
 
-    if (wantsSpanish && _looksEnglish(analysis)) {
+    if (wantsSpanish && _looksEnglish(normalizedAnalysis)) {
       return _buildHeuristicAnalysis(dreamText, isSpanish: true);
     }
 
-    if (!wantsSpanish && _looksSpanish(analysis)) {
+    if (!wantsSpanish && _looksSpanish(normalizedAnalysis)) {
       return _buildHeuristicAnalysis(dreamText, isSpanish: false);
     }
 
-    return analysis;
+    return normalizedAnalysis;
+  }
+
+  static DreamAnalysis _normalizeLegacyTerms(DreamAnalysis analysis) {
+    String normalizeTerm(String value) {
+      return value.replaceAll(
+        RegExp(r'\bsonador\b', caseSensitive: false),
+        'soñador',
+      );
+    }
+
+    List<String> normalizeList(List<String> values) {
+      return values.map(normalizeTerm).toList(growable: false);
+    }
+
+    return DreamAnalysis(
+      sentiment: normalizeTerm(analysis.sentiment),
+      category: normalizeTerm(analysis.category),
+      emotions: normalizeList(analysis.emotions),
+      characters: normalizeList(analysis.characters),
+      places: normalizeList(analysis.places),
+      themes: normalizeList(analysis.themes),
+      psychologicalNote: normalizeTerm(analysis.psychologicalNote),
+      summary: normalizeTerm(analysis.summary),
+    );
   }
 
   static DreamAnalysis alignWithDreamSignals({
@@ -150,7 +175,7 @@ class AnalysisLanguageUtils {
           ? const ['miedo', 'vigilancia', 'impotencia']
           : const ['fear', 'vigilance', 'helplessness'],
       characters: isSpanish
-          ? const ['sonador', 'perseguidor']
+          ? const ['soñador', 'perseguidor']
           : const ['dreamer', 'pursuer'],
       places: isSpanish
           ? const ['bosque', 'pasillos', 'exteriores oscuros']
@@ -174,7 +199,7 @@ class AnalysisLanguageUtils {
       emotions: isSpanish
           ? const ['vértigo', 'pánico', 'pérdida de control']
           : const ['vertigo', 'panic', 'loss of control'],
-      characters: isSpanish ? const ['sonador'] : const ['dreamer'],
+      characters: isSpanish ? const ['soñador'] : const ['dreamer'],
       places: isSpanish ? const ['altura', 'caida'] : const ['height', 'fall'],
       themes: isSpanish
           ? const ['caída', 'descontrol', 'despertar brusco']
@@ -218,7 +243,7 @@ class AnalysisLanguageUtils {
         emotions: isSpanish
             ? const ['libertad', 'amplitud', 'ligereza']
             : const ['freedom', 'expansion', 'lightness'],
-        characters: isSpanish ? const ['sonador'] : const ['dreamer'],
+        characters: isSpanish ? const ['soñador'] : const ['dreamer'],
         places: isSpanish
             ? const ['ciudad', 'cielo', 'nubes']
             : const ['city', 'sky', 'clouds'],
@@ -242,7 +267,7 @@ class AnalysisLanguageUtils {
             ? const ['miedo', 'vigilancia', 'impotencia']
             : const ['fear', 'vigilance', 'helplessness'],
         characters: isSpanish
-            ? const ['sonador', 'perseguidor']
+            ? const ['soñador', 'perseguidor']
             : const ['dreamer', 'pursuer'],
         places: isSpanish
             ? const ['pasillos', 'exteriores oscuros']
@@ -266,7 +291,7 @@ class AnalysisLanguageUtils {
         emotions: isSpanish
             ? const ['vértigo', 'pánico', 'pérdida de control']
             : const ['vertigo', 'panic', 'loss of control'],
-        characters: isSpanish ? const ['sonador'] : const ['dreamer'],
+        characters: isSpanish ? const ['soñador'] : const ['dreamer'],
         places: isSpanish
             ? const ['altura', 'caida']
             : const ['height', 'fall'],
@@ -290,7 +315,7 @@ class AnalysisLanguageUtils {
             ? const ['vergüenza', 'estrés', 'vulnerabilidad']
             : const ['embarrassment', 'stress', 'vulnerability'],
         characters: isSpanish
-            ? const ['sonador', 'personas cercanas']
+            ? const ['soñador', 'personas cercanas']
             : const ['dreamer', 'close people'],
         places: isSpanish ? const ['entorno social'] : const ['social setting'],
         themes: isSpanish
@@ -313,7 +338,7 @@ class AnalysisLanguageUtils {
             ? const ['presión', 'confusión', 'inseguridad']
             : const ['pressure', 'confusion', 'insecurity'],
         characters: isSpanish
-            ? const ['sonador', 'companeros']
+            ? const ['soñador', 'companeros']
             : const ['dreamer', 'classmates'],
         places: isSpanish ? const ['aula'] : const ['classroom'],
         themes: isSpanish
@@ -336,7 +361,7 @@ class AnalysisLanguageUtils {
             ? const ['urgencia', 'frustracion', 'impotencia']
             : const ['urgency', 'frustration', 'helplessness'],
         characters: isSpanish
-            ? const ['sonador', 'persona inalcanzable']
+            ? const ['soñador', 'persona inalcanzable']
             : const ['dreamer', 'unreachable person'],
         places: isSpanish
             ? const ['calle', 'tienda']
@@ -361,7 +386,7 @@ class AnalysisLanguageUtils {
             ? const ['miedo', 'tension', 'alerta']
             : const ['fear', 'tension', 'alertness'],
         characters: isSpanish
-            ? const ['sonador', 'familia o testigos']
+            ? const ['soñador', 'familia o testigos']
             : const ['dreamer', 'family or witnesses'],
         places: isSpanish
             ? const ['orilla', 'casa', 'espacio inundado']
@@ -384,7 +409,7 @@ class AnalysisLanguageUtils {
       emotions: isSpanish
           ? const ['reflexion', 'incertidumbre']
           : const ['reflection', 'uncertainty'],
-      characters: isSpanish ? const ['sonador'] : const ['dreamer'],
+      characters: isSpanish ? const ['soñador'] : const ['dreamer'],
       places: isSpanish ? const ['escenario onirico'] : const ['dream setting'],
       themes: isSpanish
           ? const ['procesamiento emocional']

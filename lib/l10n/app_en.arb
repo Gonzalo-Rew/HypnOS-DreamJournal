@@ -99,6 +99,8 @@
   "homeListDreams": "List dreams",
   "@homeListDreams": {},
   "homeProfile": "Profile",
+  "homeTodayLabel": "Today",
+  "homeNoDreamsToday": "No dreams registered today",
   "@homeProfile": {},
 
   "dreamsListTitle": "Dreams",
@@ -397,7 +399,7 @@
   "@settingsSectionAi": {},
   "settingsAiTitle": "Morpheus - AI Analysis",
   "@settingsAiTitle": {},
-  "settingsAiSubtitle": "Active · managed by the server",
+  "settingsAiSubtitle": "Active",
   "@settingsAiSubtitle": {},
   "settingsSectionLegal": "LEGAL",
   "@settingsSectionLegal": {},
@@ -533,6 +535,10 @@
 
   "editProfileAvatarUpdated": "Avatar updated",
   "@editProfileAvatarUpdated": {},
+  "editProfileAvatarRemoved": "Avatar removed",
+  "@editProfileAvatarRemoved": {},
+  "editProfileAvatarRemoveError": "Error removing avatar",
+  "@editProfileAvatarRemoveError": {},
   "editProfileAvatarUploadError": "Error uploading avatar",
   "@editProfileAvatarUploadError": {},
   "editProfileNameValidationError": "Could not validate name",
@@ -541,6 +547,8 @@
   "@editProfileUpdateFailed": {},
   "editProfileChangeAvatar": "Change avatar",
   "@editProfileChangeAvatar": {},
+  "editProfileRemoveAvatar": "Remove avatar",
+  "@editProfileRemoveAvatar": {},
   "editProfileUsername": "Username",
   "@editProfileUsername": {},
 

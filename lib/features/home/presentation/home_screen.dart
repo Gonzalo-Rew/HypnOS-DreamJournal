@@ -11,6 +11,7 @@ import 'package:hypnos_dreamjournal/features/social/presentation/public_profile_
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/user_search_screen.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
+import 'package:hypnos_dreamjournal/shared/extensions/extensions.dart';
 import 'package:hypnos_dreamjournal/shared/utils/intensity_utils.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/glass_card.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/hypnos_app_bar.dart';
@@ -30,10 +31,23 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Dream> _recentDreams = [];
   bool _isLoading = true;
 
-  Dream? get _lastDream =>
-      _recentDreams.isNotEmpty ? _recentDreams.first : null;
-  List<Dream> get _otherDreams =>
-      _recentDreams.length > 1 ? _recentDreams.sublist(1) : [];
+  Dream? get _todayDream {
+    for (final dream in _recentDreams) {
+      if (dream.dreamDate.isToday) {
+        return dream;
+      }
+    }
+    return null;
+  }
+
+  List<Dream> get _otherDreams {
+    final todayDream = _todayDream;
+    if (todayDream == null) {
+      return _recentDreams;
+    }
+
+    return _recentDreams.where((dream) => dream.id != todayDream.id).toList();
+  }
 
   @override
   void initState() {
@@ -70,6 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final todayDream = _todayDream;
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
@@ -114,13 +130,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 2. Last dream featured card
                     if (_isLoading)
                       const _LoadingCard()
-                    else if (_lastDream != null)
-                      RepaintBoundary(
-                        child: _LastDreamFeaturedCard(
-                          dream: _lastDream!,
-                          onTap: () => _openDetail(_lastDream!),
-                        ),
-                      ),
+                    else
+                      todayDream != null
+                          ? RepaintBoundary(
+                              child: _LastDreamFeaturedCard(
+                                dream: todayDream,
+                                onTap: () => _openDetail(todayDream),
+                              ),
+                            )
+                          : const _NoDreamsTodayCard(),
 
                     const SizedBox(height: AppSpacing.lg),
 
@@ -239,7 +257,7 @@ class _LastDreamFeaturedCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: emotion chip + "Anoche"
+              // Top row: emotion chip + today label
               Row(
                 children: [
                   Container(
@@ -268,7 +286,7 @@ class _LastDreamFeaturedCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    'Anoche',
+                    l.homeTodayLabel,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -328,6 +346,93 @@ class _LastDreamFeaturedCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoDreamsTodayCard extends StatelessWidget {
+  const _NoDreamsTodayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF0D1B2A),
+              AppColors.accentSecondary.withValues(alpha: 0.18),
+              const Color(0xFF0A0C14),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentSecondary.withValues(alpha: 0.30),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppColors.accentSecondary.withValues(alpha: 0.60),
+                    ),
+                  ),
+                  child: Text(
+                    l.homeTodayLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.nightlight_outlined,
+                  color: AppColors.textSecondary,
+                  size: 18,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              l.homeNoDreamsToday,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                height: 1.2,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l.homeSubtitle,
+              style: const TextStyle(
+                fontFamily: 'Lora',
+                fontSize: 14,
+                height: 1.6,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );

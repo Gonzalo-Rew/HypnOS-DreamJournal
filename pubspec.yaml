@@ -84,6 +84,8 @@ dependencies:
 
   # Notifications
   flutter_local_notifications: ^17.2.2 # Local notifications (morning reminders)
+  timezone: ^0.9.4
+  flutter_timezone: ^5.0.2
 
   # Navigation
   go_router: ^13.2.0 # Declarative routing and navigation
@@ -97,6 +99,7 @@ dependencies:
   # Additional utilities
   uuid: ^4.0.0 # UUID generation for IDs
   equatable: ^2.0.5 # Equality comparison for models
+  firebase_app_check: ^0.2.2+7
 
 dev_dependencies:
   flutter_test:

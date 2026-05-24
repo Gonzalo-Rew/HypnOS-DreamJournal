@@ -140,6 +140,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get homeProfile => 'Perfil';
 
   @override
+  String get homeTodayLabel => 'Hoy';
+
+  @override
+  String get homeNoDreamsToday => 'No hay ningún sueño registrado hoy';
+
+  @override
   String get dreamsListTitle => 'Sueños';
 
   @override
@@ -568,7 +574,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsAiTitle => 'Morfeo - Análisis con IA';
 
   @override
-  String get settingsAiSubtitle => 'Activo · gestionado por el servidor';
+  String get settingsAiSubtitle => 'Activo';
 
   @override
   String get settingsSectionLegal => 'LEGAL';
@@ -778,6 +784,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get editProfileAvatarUpdated => 'Avatar actualizado';
 
   @override
+  String get editProfileAvatarRemoved => 'Avatar eliminado';
+
+  @override
+  String get editProfileAvatarRemoveError => 'Error al eliminar avatar';
+
+  @override
   String get editProfileAvatarUploadError => 'Error al subir avatar';
 
   @override
@@ -788,6 +800,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get editProfileChangeAvatar => 'Cambiar avatar';
+
+  @override
+  String get editProfileRemoveAvatar => 'Quitar avatar';
 
   @override
   String get editProfileUsername => 'Nombre de usuario';

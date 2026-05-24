@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/legal_screen.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_colors.dart';
 import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
+import 'package:hypnos_dreamjournal/core/constants/app_constants.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/data/repositories/auth_repository.dart';
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
@@ -31,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _acceptedLegal = false;
   String? _errorMessage;
 
   @override
@@ -44,15 +46,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_acceptedLegal) {
+      final isEs = Localizations.localeOf(context).languageCode == 'es';
+      setState(() {
+        _errorMessage = isEs
+            ? 'Debes aceptar los Términos y la Política de privacidad.'
+            : 'You must accept the Terms and Privacy Policy.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
+    final acceptedAt = DateTime.now();
+
     final result = await _authRepository.signUp(
       email: _emailController.text.trim(),
       password: _passwordController.text,
       displayName: _displayNameController.text.trim(),
+      termsAcceptedAt: acceptedAt,
+      privacyAcceptedAt: acceptedAt,
+      termsVersion: AppConstants.termsVersion,
+      privacyVersion: AppConstants.privacyVersion,
     );
 
     if (!mounted) return;
@@ -361,12 +380,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 20),
                             _SocialButton(
                               onTap: _showComingSoon,
-                              label: l.registerContinueApple,
-                              icon: Icons.apple,
-                            ),
-                            const SizedBox(height: 10),
-                            _SocialButton(
-                              onTap: _showComingSoon,
                               label: l.registerContinueGoogle,
                               icon: Icons.g_mobiledata_rounded,
                             ),
@@ -375,7 +388,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Center(child: _TermsText(l: l)),
+                    Center(
+                      child: _TermsText(
+                        l: l,
+                        accepted: _acceptedLegal,
+                        onChanged: (value) =>
+                            setState(() => _acceptedLegal = value),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     Center(
                       child: Row(
@@ -610,40 +630,99 @@ class _SocialButton extends StatelessWidget {
 
 // ─── Terms text ────────────────────────────────────────────────────────────
 class _TermsText extends StatelessWidget {
-  const _TermsText({required this.l});
+  const _TermsText({
+    required this.l,
+    required this.accepted,
+    required this.onChanged,
+  });
   final AppLocalizations l;
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final recognizer = TapGestureRecognizer()
+    final isEs = Localizations.localeOf(context).languageCode == 'es';
+    final termsRecognizer = TapGestureRecognizer()
       ..onTap = () => Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const LegalScreen(type: LegalDocType.terms),
         ),
       );
-    return Text.rich(
-      TextSpan(
-        style: TextStyle(
-          color: AppColors.textSecondary.withValues(alpha: 0.55),
-          fontSize: 9.5,
-          letterSpacing: 0.4,
-          height: 1.7,
+    final privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const LegalScreen(type: LegalDocType.privacy),
         ),
+      );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextSpan(text: l.registerTermsPrefix),
-          TextSpan(
-            text: ' ${l.registerTermsLink} ',
-            recognizer: recognizer,
-            style: const TextStyle(
-              color: AppColors.accentPrimary,
-              fontWeight: FontWeight.w700,
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: accepted,
+                onChanged: (value) => onChanged(value ?? false),
+                activeColor: AppColors.accentPrimary,
+                checkColor: AppColors.bgPrimary,
+                side: const BorderSide(color: AppColors.borderSubtle),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: const VisualDensity(
+                  horizontal: -4,
+                  vertical: -4,
+                ),
+              ),
             ),
           ),
-          TextSpan(text: l.registerTermsSuffix),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text.rich(
+                TextSpan(
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.7),
+                    fontSize: 10,
+                    letterSpacing: 0.3,
+                    height: 1.6,
+                  ),
+                  children: [
+                    TextSpan(text: isEs ? 'Acepto los ' : 'I accept the '),
+                    TextSpan(
+                      text: isEs
+                          ? 'Términos y Condiciones'
+                          : 'Terms & Conditions',
+                      recognizer: termsRecognizer,
+                      style: const TextStyle(
+                        color: AppColors.accentPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(text: isEs ? ' y la ' : ' and the '),
+                    TextSpan(
+                      text: isEs ? 'Política de privacidad' : 'Privacy Policy',
+                      recognizer: privacyRecognizer,
+                      style: const TextStyle(
+                        color: AppColors.accentPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const TextSpan(text: '.'),
+                  ],
+                ),
+                textAlign: TextAlign.left,
+              ),
+            ),
+          ),
         ],
       ),
-      textAlign: TextAlign.center,
     );
   }
 }

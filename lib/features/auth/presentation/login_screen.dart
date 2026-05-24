@@ -127,32 +127,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _signInWithApple() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    final result = await _authRepository.signInWithApple();
-    if (!mounted) return;
-    final l = AppLocalizations.of(context);
-    setState(() {
-      _isLoading = false;
-      if (result is Failure<void>) {
-        final ex = result.exception;
-        _errorMessage = ex is AuthException
-            ? localizeAuthError(l, ex.code)
-            : l.authErrorGeneric;
-      }
-    });
-    if (result is Success<void>) {
-      Navigator.of(
-        context,
-      ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
-    }
-  }
-
   Future<void> _signInWithBiometrics() async {
     if (_isLoading || _isBiometricAuthenticating) return;
+    final l = AppLocalizations.of(context);
     setState(() {
       _isBiometricAuthenticating = true;
       _errorMessage = null;
@@ -164,7 +141,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
     if (!authenticated) {
-      setState(() => _isBiometricAuthenticating = false);
+      setState(() {
+        _isBiometricAuthenticating = false;
+        _errorMessage = l.authErrorGeneric;
+      });
       return;
     }
 
@@ -183,7 +163,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (!mounted) return;
-    final l = AppLocalizations.of(context);
     setState(() {
       _isBiometricAuthenticating = false;
       if (result is Failure<void>) {
@@ -651,12 +630,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 24),
                             _OrDivider(label: l.registerOrSecureAccess),
                             const SizedBox(height: 16),
-                            _SocialButton(
-                              onTap: _isLoading ? null : _signInWithApple,
-                              label: l.registerContinueApple,
-                              icon: Icons.apple,
-                            ),
-                            const SizedBox(height: 10),
                             _SocialButton(
                               onTap: _isLoading ? null : _signInWithGoogle,
                               label: l.registerContinueGoogle,

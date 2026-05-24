@@ -24,7 +24,11 @@ service cloud.firestore {
                'aiEnabled',
                'timezone',
                'notificationsEnabled',
-               'notificationTime'
+               'notificationTime',
+               'termsAcceptedAt',
+               'privacyAcceptedAt',
+               'termsVersion',
+               'privacyVersion'
              ])
              && request.resource.data.displayName is string
              && request.resource.data.displayName.size() > 0
@@ -34,6 +38,12 @@ service cloud.firestore {
              && request.resource.data.aiEnabled is bool
              && request.resource.data.timezone is string
              && request.resource.data.timezone.size() > 0
+             && request.resource.data.termsAcceptedAt is timestamp
+             && request.resource.data.privacyAcceptedAt is timestamp
+             && request.resource.data.termsVersion is string
+             && request.resource.data.termsVersion.size() > 0
+             && request.resource.data.privacyVersion is string
+             && request.resource.data.privacyVersion.size() > 0
              && (!('photoUrl' in request.resource.data)
                  || request.resource.data.photoUrl == null
                  || request.resource.data.photoUrl is string)
@@ -42,14 +52,43 @@ service cloud.firestore {
     }
 
     function validUserDocumentUpdate() {
-      return request.resource.data.createdAt == resource.data.createdAt
-             && request.resource.data.email == resource.data.email
-             && request.resource.data.displayName is string
-             && request.resource.data.displayName.size() > 0
-             && (!('dreamVisibility' in request.resource.data)
-                 || request.resource.data.dreamVisibility in ['public', 'followers', 'private'])
-             && (!('notificationTime' in request.resource.data)
-                 || validNotificationTime(request.resource.data.notificationTime));
+      let changedKeys = request.resource.data.diff(resource.data).changedKeys();
+
+      return changedKeys.hasOnly([
+           'displayName',
+           'photoUrl',
+           'aiEnabled',
+           'timezone',
+           'notificationsEnabled',
+           'notificationTime',
+           'dreamVisibility',
+           'hasTutorialSeen',
+           'fcmToken'
+         ])
+         && (!changedKeys.hasAny(['displayName'])
+           || (request.resource.data.displayName is string
+             && request.resource.data.displayName.size() > 0))
+         && (!changedKeys.hasAny(['photoUrl'])
+           || !('photoUrl' in request.resource.data)
+           || request.resource.data.photoUrl == null
+           || request.resource.data.photoUrl is string)
+         && (!changedKeys.hasAny(['aiEnabled'])
+           || request.resource.data.aiEnabled is bool)
+         && (!changedKeys.hasAny(['timezone'])
+           || (request.resource.data.timezone is string
+             && request.resource.data.timezone.size() > 0))
+         && (!changedKeys.hasAny(['notificationsEnabled'])
+           || request.resource.data.notificationsEnabled is bool)
+         && (!changedKeys.hasAny(['notificationTime'])
+           || validNotificationTime(request.resource.data.notificationTime))
+         && (!changedKeys.hasAny(['dreamVisibility'])
+           || request.resource.data.dreamVisibility in ['public', 'followers', 'private'])
+         && (!changedKeys.hasAny(['hasTutorialSeen'])
+           || request.resource.data.hasTutorialSeen is bool)
+         && (!changedKeys.hasAny(['fcmToken'])
+           || !('fcmToken' in request.resource.data)
+           || (request.resource.data.fcmToken is string
+             && request.resource.data.fcmToken.size() > 0));
     }
 
     function validDreamBaseDocument(data) {

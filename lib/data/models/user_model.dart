@@ -1,5 +1,7 @@
 /// User profile stored in users/{uid}.
 class User {
+  static const Object _sentinel = Object();
+
   final String id;
   final String displayName;
   final String? username;
@@ -17,6 +19,11 @@ class User {
   final bool notifyNewFollowers;
   final bool notifyFollowingDreams;
   final String? fcmToken;
+  final bool hasTutorialSeen;
+  final DateTime? termsAcceptedAt;
+  final DateTime? privacyAcceptedAt;
+  final String? termsVersion;
+  final String? privacyVersion;
 
   User({
     required this.id,
@@ -36,6 +43,11 @@ class User {
     this.notifyNewFollowers = true,
     this.notifyFollowingDreams = true,
     this.fcmToken,
+    this.hasTutorialSeen = false,
+    this.termsAcceptedAt,
+    this.privacyAcceptedAt,
+    this.termsVersion,
+    this.privacyVersion,
   });
 
   factory User.fromFirestore(Map<String, dynamic> data, String id) {
@@ -61,6 +73,11 @@ class User {
       notifyNewFollowers: data['notifyNewFollowers'] as bool? ?? true,
       notifyFollowingDreams: data['notifyFollowingDreams'] as bool? ?? true,
       fcmToken: data['fcmToken'] as String?,
+      hasTutorialSeen: data['hasTutorialSeen'] as bool? ?? false,
+      termsAcceptedAt: (data['termsAcceptedAt'] as dynamic)?.toDate(),
+      privacyAcceptedAt: (data['privacyAcceptedAt'] as dynamic)?.toDate(),
+      termsVersion: data['termsVersion'] as String?,
+      privacyVersion: data['privacyVersion'] as String?,
     );
   }
 
@@ -82,6 +99,11 @@ class User {
       'notifyNewFollowers': notifyNewFollowers,
       'notifyFollowingDreams': notifyFollowingDreams,
       if (fcmToken != null) 'fcmToken': fcmToken,
+      'hasTutorialSeen': hasTutorialSeen,
+      if (termsAcceptedAt != null) 'termsAcceptedAt': termsAcceptedAt,
+      if (privacyAcceptedAt != null) 'privacyAcceptedAt': privacyAcceptedAt,
+      if (termsVersion != null) 'termsVersion': termsVersion,
+      if (privacyVersion != null) 'privacyVersion': privacyVersion,
     };
   }
 
@@ -93,7 +115,7 @@ class User {
     DateTime? createdAt,
     bool? aiEnabled,
     String? timezone,
-    String? photoUrl,
+    Object? photoUrl = _sentinel,
     bool? notificationsEnabled,
     String? notificationTime,
     int? followersCount,
@@ -103,6 +125,11 @@ class User {
     bool? notifyNewFollowers,
     bool? notifyFollowingDreams,
     String? fcmToken,
+    bool? hasTutorialSeen,
+    DateTime? termsAcceptedAt,
+    DateTime? privacyAcceptedAt,
+    String? termsVersion,
+    String? privacyVersion,
   }) {
     return User(
       id: id ?? this.id,
@@ -112,7 +139,7 @@ class User {
       createdAt: createdAt ?? this.createdAt,
       aiEnabled: aiEnabled ?? this.aiEnabled,
       timezone: timezone ?? this.timezone,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoUrl: identical(photoUrl, _sentinel) ? this.photoUrl : photoUrl as String?,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       notificationTime: notificationTime ?? this.notificationTime,
       followersCount: followersCount ?? this.followersCount,
@@ -123,6 +150,11 @@ class User {
       notifyFollowingDreams:
           notifyFollowingDreams ?? this.notifyFollowingDreams,
       fcmToken: fcmToken ?? this.fcmToken,
+      hasTutorialSeen: hasTutorialSeen ?? this.hasTutorialSeen,
+      termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
+      privacyAcceptedAt: privacyAcceptedAt ?? this.privacyAcceptedAt,
+      termsVersion: termsVersion ?? this.termsVersion,
+      privacyVersion: privacyVersion ?? this.privacyVersion,
     );
   }
 

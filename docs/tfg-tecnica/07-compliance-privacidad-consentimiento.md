@@ -4,7 +4,7 @@ Estado: Borrador
 Responsable: Firebase Backend Security Agent
 
 ## 1. Objetivo
-Evidenciar cumplimiento tecnico de privacidad, consentimiento y gobernanza del dato.
+Evidenciar cumplimiento técnico de privacidad, consentimiento y gobernanza del dato.
 
 ## 2. Datos tratados
 - Tipos de datos personales.
@@ -12,22 +12,22 @@ Evidenciar cumplimiento tecnico de privacidad, consentimiento y gobernanza del d
 - Minimización.
 
 ## 3. Consentimiento y trazabilidad
-- Flujo de aceptacion.
-- Versionado de terminos/politica.
+- Flujo de aceptación.
+- Versionado de términos/política.
 - Evidencia de consentimiento.
 
-## 4. Control de acceso y proteccion de datos
+## 4. Control de acceso y protección de datos
 - Reglas de acceso por usuario.
-- Exposicion en funcionalidades sociales.
+- Exposición en funcionalidades sociales.
 
-## 5. Derecho de supresion y borrado de cuenta
-- Flujo tecnico de borrado.
+## 5. Derecho de supresión y borrado de cuenta
+- Flujo técnico de borrado.
 - Alcance del borrado.
 - Limitaciones declaradas.
 
-## 6. Riesgos de compliance y mitigacion
+## 6. Riesgos de compliance y mitigación
 - Riesgo de consentimientos incompletos.
-- Riesgo de retencion indebida.
+- Riesgo de retención indebida.
 - Riesgo de acceso no autorizado.
 
 ## 7. Evidencias base

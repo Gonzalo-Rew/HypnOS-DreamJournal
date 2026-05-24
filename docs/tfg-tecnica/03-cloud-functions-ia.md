@@ -1,4 +1,4 @@
-# Documento 03 - Cloud Functions e Integracion IA
+# Documento 03 - Cloud Functions e Integración IA
 
 Estado: Borrador
 Responsable: Infra Mobile Firebase AI
@@ -17,19 +17,19 @@ Documentar los contratos tecnicos de Functions y el flujo de analisis IA.
 ### 3.3 Manejo de errores y codigos
 
 ## 4. Seguridad de funciones
-- Secretos y configuracion.
-- Limites de acceso.
+- Secretos y configuración.
+- Límites de acceso.
 - Consideraciones antiabuso.
 
 ## 5. Calidad de resultados IA
-- Normalizacion de salida.
-- Reintentos/reparacion de JSON.
+- Normalización de salida.
+- Reintentos/reparación de JSON.
 - Limitaciones del modelo.
 
 ## 6. Coste y rendimiento
 - Factores de coste.
 - Latencia objetivo.
-- Recomendaciones de operacion.
+- Recomendaciones de operación.
 
 ## 7. Evidencias
 - [functions/src/index.ts](../../functions/src/index.ts)

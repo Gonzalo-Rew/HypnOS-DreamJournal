@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:developer' as developer;
 import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
@@ -181,7 +182,21 @@ class DreamRepositoryImpl implements DreamRepository {
       data.remove('createdAt');
       data['updatedAt'] = DateTime.now();
       await _dreamDocument(userId, dreamId).update(data);
-      await _syncPublicDreamProjection(userId: userId, dreamId: dreamId);
+
+      // Public projection sync should never block the private dream update.
+      try {
+        await _syncPublicDreamProjection(userId: userId, dreamId: dreamId);
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied') {
+          developer.log(
+            'Skipping public dream projection sync due to permission-denied: ${e.message}',
+            name: 'DreamRepository',
+          );
+        } else {
+          rethrow;
+        }
+      }
+
       return const Success(null);
     } catch (e) {
       return Failure(FirestoreException(message: 'Failed to update dream: $e'));
@@ -274,6 +289,16 @@ class DreamRepositoryImpl implements DreamRepository {
     final publicDreamRef = _firestore.collection('publicDreams').doc(dreamId);
 
     if (!isPublished) {
+      final publicSnap = await publicDreamRef.get();
+      if (!publicSnap.exists) {
+        return;
+      }
+
+      final publicOwner = publicSnap.data()?['userId'] as String?;
+      if (publicOwner != userId) {
+        return;
+      }
+
       await publicDreamRef.delete();
       return;
     }

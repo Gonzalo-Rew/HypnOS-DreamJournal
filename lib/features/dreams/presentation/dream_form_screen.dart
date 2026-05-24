@@ -525,6 +525,12 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
                   decoration: glassDecoration,
                   child: TextFormField(
                     controller: _titleController,
+                    keyboardType: TextInputType.text,
+                    textCapitalization: TextCapitalization.sentences,
+                    autocorrect: true,
+                    enableSuggestions: true,
+                    smartDashesType: SmartDashesType.enabled,
+                    smartQuotesType: SmartQuotesType.enabled,
                     style: fieldStyle,
                     decoration: InputDecoration(
                       hintText: l.dreamFormTitleHint,
@@ -554,6 +560,12 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
                       TextFormField(
                         controller: _descriptionController,
                         maxLines: 5,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        smartDashesType: SmartDashesType.enabled,
+                        smartQuotesType: SmartQuotesType.enabled,
                         style: fieldStyle,
                         decoration: InputDecoration(
                           hintText: l.dreamFormDescriptionHint,
@@ -599,7 +611,7 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
 
                 if (_isEditing) ...[
                   const SizedBox(height: AppSpacing.md),
-                  Text('PUBLICACION Y ALCANCE', style: sectionLabelStyle),
+                  Text('PUBLICACIÓN Y ALCANCE', style: sectionLabelStyle),
                   const SizedBox(height: AppSpacing.xs),
                   _PublishToggle(
                     isPublished: _isPublished,

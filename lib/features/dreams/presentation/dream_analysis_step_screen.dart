@@ -14,6 +14,7 @@ import 'package:hypnos_dreamjournal/features/dreams/data/dream_draft.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_morfeo_result_screen.dart';
 import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_saved_step_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
+import 'package:hypnos_dreamjournal/shared/errors/exceptions.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
 import 'package:hypnos_dreamjournal/shared/utils/analysis_language_utils.dart';
 import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
@@ -22,6 +23,10 @@ import 'package:hypnos_dreamjournal/shared/widgets/morpheus_orb.dart';
 // Offers AI analysis via Morfeo or direct save without analysis.
 
 enum _SaveStage { idle, uploading, transcribing, analyzing, saving, error }
+
+class _GeminiEmptyAnalysisException implements Exception {
+  const _GeminiEmptyAnalysisException();
+}
 
 class DreamAnalysisStepScreen extends StatefulWidget {
   const DreamAnalysisStepScreen({super.key, required this.draft});
@@ -34,9 +39,6 @@ class DreamAnalysisStepScreen extends StatefulWidget {
 }
 
 class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
-  static const int _minTranscriptionChars = 40;
-  static const int _minTranscriptionWords = 8;
-
   _SaveStage _stage = _SaveStage.idle;
   String _statusLabel = '';
   String? _errorMessage;
@@ -145,7 +147,23 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
               final text = res.data['transcription'] as String?;
               if (text != null && text.isNotEmpty) parts.add(text);
             }
-          } on FirebaseFunctionsException {
+          } on FirebaseFunctionsException catch (e) {
+            final message = '${e.message ?? ''} ${e.details ?? ''}'
+                .toLowerCase();
+            final isQuotaOrAvailabilityIssue =
+                e.code == 'resource-exhausted' ||
+                e.code == 'unavailable' ||
+                message.contains('429 too many requests') ||
+                message.contains('prepayment credits are depleted') ||
+                message.contains('quota');
+
+            if (isQuotaOrAvailabilityIssue) {
+              debugPrint(
+                'Morfeo transcription degraded: $e. Continuing with title/text only.',
+              );
+              continue;
+            }
+
             await _rollbackUploadedAudio(uploadedUrls);
             if (!mounted) return;
             _setStage(_SaveStage.idle, '');
@@ -168,7 +186,8 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
 
         if (parts.isNotEmpty) transcription = parts.join('\n\n');
 
-        if (_isTranscriptionTooSmall(transcription)) {
+        final hasTypedText = draft.text.trim().isNotEmpty;
+        if (!hasTypedText && _isTranscriptionTooSmall(transcription)) {
           await _rollbackUploadedAudio(uploadedUrls);
           if (!mounted) return;
           _setStage(_SaveStage.idle, '');
@@ -192,50 +211,83 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
         _setStage(_SaveStage.analyzing, l.dreamAnalysisMorfeoInterpreting);
 
         try {
-          final res = await functions.httpsCallable('analyzeDream').call({
-            'title': draft.title,
-            'text': analyzeText,
-            'moodScore': draft.moodScore,
-            'language': localeCode,
-          });
+          final result = await GeminiService.instance.analyzeDream(
+            title: draft.title,
+            text: analyzeText,
+            moodScore: draft.moodScore,
+            language: localeCode,
+          );
 
-          final Map<String, dynamic> data =
-              (res.data as Map?)?.cast<String, dynamic>() ?? {};
-          final analysisText = data['analysisText'] as String?;
-          final quality = (data['quality'] as String? ?? '').toLowerCase();
-          if (analysisText != null && analysisText.isNotEmpty) {
-            var a = DreamAnalysis.fromText(analysisText);
-            a = AnalysisLanguageUtils.coerceToLocale(
-              analysis: a,
-              localeCode: localeCode,
-              dreamText: analyzeText,
-            );
-            a = AnalysisLanguageUtils.alignWithDreamSignals(
-              analysis: a,
-              dreamText: analyzeText,
-              localeCode: localeCode,
-            );
-            if (!_hasMeaningfulAnalysis(a)) {
-              a = _buildFallbackAnalysis(lowQualityInput: quality == 'low');
-            }
-            aiAnalysisMap = a.toMap();
-            aiCategory = a.category;
-            aiSummary = a.summary;
-            tags = <String>{
-              'mood:${draft.moodScore}',
-              ...a.themes.take(4),
-              ...a.emotions.take(3),
-            }.toList();
+          if (result is Failure<DreamAnalysis>) {
+            throw (result).exception;
           }
-        } on FirebaseFunctionsException catch (e) {
-          debugPrint('Morfeo CF error: ${e.code} — ${e.message}');
+
+          final localizedAnalysis = AnalysisLanguageUtils.coerceToLocale(
+            analysis: (result as Success<DreamAnalysis>).value,
+            localeCode: localeCode,
+            dreamText: analyzeText,
+          );
+
+          final alignedAnalysis = AnalysisLanguageUtils.alignWithDreamSignals(
+            analysis: localizedAnalysis,
+            dreamText: analyzeText,
+            localeCode: localeCode,
+          );
+
+          debugPrint(
+            '[DreamAnalysisStep] alignedAnalysis stats: '
+            'sentiment=${alignedAnalysis.sentiment}, '
+            'category=${alignedAnalysis.category}, '
+            'summaryLength=${alignedAnalysis.summary.length}, '
+            'psychNoteLength=${alignedAnalysis.psychologicalNote.length}, '
+            'emotions=${alignedAnalysis.emotions.length}, '
+            'characters=${alignedAnalysis.characters.length}, '
+            'places=${alignedAnalysis.places.length}, '
+            'themes=${alignedAnalysis.themes.length}',
+          );
+
+          if (!_hasMinimumGeminiContent(alignedAnalysis)) {
+            throw const _GeminiEmptyAnalysisException();
+          }
+
+          aiAnalysisMap = alignedAnalysis.toMap();
+          aiCategory = alignedAnalysis.category;
+          aiSummary = alignedAnalysis.summary;
+          tags = <String>{
+            'mood:${draft.moodScore}',
+            ...alignedAnalysis.themes.take(4),
+            ...alignedAnalysis.emotions.take(3),
+          }.toList();
+
+          if (aiSummary.trim().isEmpty) {
+            debugPrint(
+              '[DreamAnalysisStep] WARNING: summary is empty but analysis was accepted by minimum-content rule.',
+            );
+          }
+        } on AppException catch (e) {
+          debugPrint('Morfeo service error: ${e.message}');
           await _rollbackUploadedAudio(uploadedUrls);
           if (!mounted) return;
           _setStage(_SaveStage.idle, '');
           await _showMorfeoWarningDialog(
             title: l.dreamAnalysisMorfeoAnalyzeFailedTitle,
-            message: l.dreamAnalysisMorfeoAnalyzeFailedMessage,
+            message: _mapMorfeoAnalyzeError(e, l),
           );
+          return;
+        } on _GeminiEmptyAnalysisException {
+          await _rollbackUploadedAudio(uploadedUrls);
+          if (!mounted) return;
+          _setStage(_SaveStage.idle, '');
+
+          final shouldRetry = await _showMorfeoWarningDialog(
+            title: l.dreamAnalysisMorfeoAnalyzeFailedTitle,
+            message: _emptyAnalysisMessage(localeCode),
+            retryLabel: l.dreamsListRetry,
+          );
+
+          if (shouldRetry && mounted) {
+            await _saveWithAnalysis();
+          }
           return;
         } catch (e) {
           debugPrint('Morfeo unexpected error: $e');
@@ -299,6 +351,13 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
     // Persist aiAnalysis map if we have one
     if (aiAnalysisMap != null) {
       final aiByLanguage = <String, dynamic>{localeCode: aiAnalysisMap};
+      debugPrint(
+        '[DreamAnalysisStep] Persisting analysis: '
+        'locale=$localeCode, '
+        'aiCategoryLength=${(aiCategory ?? '').length}, '
+        'aiSummaryLength=${(aiSummary ?? '').length}, '
+        'keys=${aiAnalysisMap.keys.toList()}',
+      );
       await repo.updateDream(
         userId: userId,
         dreamId: savedDream.id,
@@ -359,74 +418,24 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
   bool _isTranscriptionTooSmall(String? transcription) {
     if (transcription == null) return true;
     final normalized = transcription.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (normalized.isEmpty) return true;
-    final words = normalized
-        .split(' ')
-        .where((word) => word.trim().isNotEmpty)
-        .length;
-    return normalized.length < _minTranscriptionChars ||
-        words < _minTranscriptionWords;
+    return normalized.isEmpty;
   }
 
-  bool _hasMeaningfulAnalysis(DreamAnalysis analysis) {
-    return analysis.summary.trim().length >= 20 ||
-        analysis.psychologicalNote.trim().length >= 20 ||
-        analysis.themes.isNotEmpty ||
-        analysis.emotions.isNotEmpty ||
-        analysis.category.trim().isNotEmpty ||
-        analysis.sentiment.trim().isNotEmpty;
+  bool _hasMinimumGeminiContent(DreamAnalysis analysis) {
+    return analysis.summary.trim().isNotEmpty ||
+      analysis.psychologicalNote.trim().isNotEmpty ||
+      analysis.themes.isNotEmpty ||
+      analysis.emotions.isNotEmpty ||
+      analysis.category.trim().isNotEmpty ||
+      analysis.sentiment.trim().isNotEmpty;
   }
 
-  DreamAnalysis _buildFallbackAnalysis({required bool lowQualityInput}) {
-    final isSpanish = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
-    final assistantName = AppLocalizations.of(context).welcomeMorpheusTitle;
-
-    if (isSpanish) {
-      return DreamAnalysis(
-        sentiment: 'neutral',
-        category: 'Neutral',
-        emotions: lowQualityInput
-            ? const ['confusion']
-            : const ['incertidumbre'],
-        characters: const ['sin datos claros'],
-        places: const ['no definido'],
-        themes: lowQualityInput
-            ? const ['contenido incoherente']
-            : const ['procesamiento emocional'],
-        psychologicalNote: lowQualityInput
-            ? 'El contenido parece insuficiente o incoherente para una lectura profunda. Prueba a describir acciones, emociones y contexto con más detalle para mejorar el análisis.'
-            : 'El relato no ofrece suficiente estructura para un análisis detallado. Aun así, puede reflejar una carga emocional difusa.',
-        summary: lowQualityInput
-            ? '$assistantName detectó texto con poca coherencia narrativa y devolvió una lectura básica.'
-            : '$assistantName devolvió un análisis básico porque la respuesta del modelo vino poco estructurada.',
-      );
-    }
-
-    return DreamAnalysis(
-      sentiment: 'neutral',
-      category: 'Neutral',
-      emotions: lowQualityInput ? const ['confusion'] : const ['uncertainty'],
-      characters: const ['no clear entities'],
-      places: const ['undefined setting'],
-      themes: lowQualityInput
-          ? const ['incoherent content']
-          : const ['emotional processing'],
-      psychologicalNote: lowQualityInput
-          ? 'The content appears insufficient or incoherent for a deep reading. Try adding actions, emotions, and context for better analysis quality.'
-          : 'The narrative is not structured enough for a detailed reading, but it may still reflect diffuse emotional load.',
-      summary: lowQualityInput
-          ? '$assistantName detected low-coherence text and returned a basic reading.'
-          : '$assistantName returned a basic analysis because the model response lacked structure.',
-    );
-  }
-
-  Future<void> _showMorfeoWarningDialog({
+  Future<bool> _showMorfeoWarningDialog({
     required String title,
     required String message,
+    String? retryLabel,
   }) {
-    return showDialog<void>(
+    return showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.62),
       builder: (ctx) => Dialog(
@@ -472,26 +481,97 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accentSecondary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(46),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Text(
-                    AppLocalizations.of(context).dreamAnalysisUnderstood,
+              if (retryLabel != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentSecondary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(46),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(retryLabel),
                   ),
                 ),
+                const SizedBox(height: 10),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: retryLabel == null
+                    ? FilledButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.accentSecondary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(46),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Text(
+                          AppLocalizations.of(context).dreamAnalysisUnderstood,
+                        ),
+                      )
+                    : OutlinedButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.accentSecondary,
+                          side: BorderSide(
+                            color: AppColors.accentSecondary.withValues(alpha: 0.55),
+                          ),
+                          minimumSize: const Size.fromHeight(46),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Text(
+                          AppLocalizations.of(context).dreamAnalysisUnderstood,
+                        ),
+                      ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ).then((value) => value ?? false);
+  }
+
+  String _emptyAnalysisMessage(String localeCode) {
+    if (localeCode == 'es') {
+      return 'Morfeo no devolvió datos suficientes para analizar este sueño. Puedes reintentarlo ahora.';
+    }
+
+    return 'Morpheus did not return enough data to analyze this dream. You can try again now.';
+  }
+
+  String _mapMorfeoAnalyzeError(AppException error, AppLocalizations l) {
+    final msg = error.message.toLowerCase();
+
+    if (msg.contains('resource-exhausted') ||
+        msg.contains('quota') ||
+        msg.contains('429') ||
+        msg.contains('prepayment credits are depleted')) {
+      return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+    }
+
+    if (msg.contains('unavailable') || msg.contains('timeout')) {
+      return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+    }
+
+    if (msg.contains('no json object found') ||
+        msg.contains('invalid json') ||
+        msg.contains('json')) {
+      return l.dreamAnalysisMorfeoAnalyzeUnexpectedMessage;
+    }
+
+    return l.dreamAnalysisMorfeoAnalyzeFailedMessage;
+  }
+
+  String _aiDisclaimerMessage() {
+    final localeCode = _normalizedLocaleCode();
+    if (localeCode == 'es') {
+      return 'Aviso: el contenido generado por IA puede contener errores o interpretaciones imprecisas.';
+    }
+
+    return 'Notice: AI-generated content may contain mistakes or inaccurate interpretations.';
   }
 
   void _resetError() => setState(() {
@@ -738,6 +818,8 @@ class _DreamAnalysisStepScreenState extends State<DreamAnalysisStepScreen> {
                 _DreamSnippetCard(draft: widget.draft),
                 SizedBox(height: verticalGap),
                 _MorfeoInfoCard(hasAudio: hasAudio),
+                const SizedBox(height: AppSpacing.md),
+                _AiDisclaimerCard(message: _aiDisclaimerMessage()),
                 SizedBox(height: verticalGap),
                 FilledButton.icon(
                   onPressed: _saveWithAnalysis,
@@ -876,6 +958,47 @@ class _DreamSnippetCard extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiDisclaimerCard extends StatelessWidget {
+  const _AiDisclaimerCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceGlass,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+            ),
+          ),
         ],
       ),
     );

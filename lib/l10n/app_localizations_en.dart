@@ -140,6 +140,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeProfile => 'Profile';
 
   @override
+  String get homeTodayLabel => 'Today';
+
+  @override
+  String get homeNoDreamsToday => 'No dreams registered today';
+
+  @override
   String get dreamsListTitle => 'Dreams';
 
   @override
@@ -563,7 +569,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAiTitle => 'Morpheus - AI Analysis';
 
   @override
-  String get settingsAiSubtitle => 'Active · managed by the server';
+  String get settingsAiSubtitle => 'Active';
 
   @override
   String get settingsSectionLegal => 'LEGAL';
@@ -765,6 +771,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editProfileAvatarUpdated => 'Avatar updated';
 
   @override
+  String get editProfileAvatarRemoved => 'Avatar removed';
+
+  @override
+  String get editProfileAvatarRemoveError => 'Error removing avatar';
+
+  @override
   String get editProfileAvatarUploadError => 'Error uploading avatar';
 
   @override
@@ -775,6 +787,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editProfileChangeAvatar => 'Change avatar';
+
+  @override
+  String get editProfileRemoveAvatar => 'Remove avatar';
 
   @override
   String get editProfileUsername => 'Username';

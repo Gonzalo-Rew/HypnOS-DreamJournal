@@ -218,6 +218,9 @@ const _privacyEs = [
         'No vendemos ni cedemos tus datos personales a terceros. '
         'Compartimos datos únicamente:\n\n'
         '• Con Google LLC como proveedor técnico del servicio, bajo contrato.\n'
+        '• Dentro de funciones sociales, cierta información mínima de interacción '
+        '(por ejemplo, solicitudes de seguimiento o estados de relación) puede '
+        'ser visible para usuarios autenticados de Hypnos.\n'
         '• Cuando publicas un sueño como «público»: su contenido será visible para '
         'otros usuarios autenticados de la aplicación.\n'
         '• Si lo exige la ley o una resolución judicial.',
@@ -235,7 +238,7 @@ const _privacyEs = [
     title: '7. Tus derechos',
     body:
         'Tienes derecho a:\n\n'
-        '• Acceder a tus datos personales exportándolos desde la aplicación.\n'
+        '• Solicitar acceso a tus datos personales escribiéndonos al correo de privacidad.\n'
         '• Rectificar datos incorrectos desde los ajustes de perfil.\n'
         '• Eliminar tu cuenta y todos los datos asociados en Ajustes › Cuenta y seguridad.\n'
         '• Oponerte al tratamiento de datos con fines de notificaciones desactivándolas '
@@ -281,7 +284,9 @@ const _termsEs = [
     body:
         'Al crear una cuenta o usar Hypnos Dream Journal («el Servicio»), '
         'aceptas estos Términos y condiciones. Si no estás de acuerdo, no uses '
-        'la aplicación.',
+        'la aplicación.\n\n'
+        'Para crear una cuenta debes aceptar expresamente estos Términos y '
+        'la Política de privacidad durante el registro.',
   ),
   _Section(
     title: '2. Tu cuenta',
@@ -332,7 +337,7 @@ const _termsEs = [
         'de Hypnos podrá verlo, comentarlo y reaccionar a él. Puedes cambiar '
         'la visibilidad o eliminar publicaciones en cualquier momento.\n\n'
         'Las solicitudes de seguimiento requieren la aceptación del destinatario. '
-        'Puedes bloquear o eliminar seguidores desde tu perfil.',
+        'Puedes eliminar seguidores desde tu perfil.',
   ),
   _Section(
     title: '7. Usos prohibidos',
@@ -443,6 +448,9 @@ const _privacyEn = [
         'We do not sell or transfer your personal data to third parties. '
         'We share data only:\n\n'
         '• With Google LLC as our technical service provider, under contract.\n'
+        '• Within social features, limited interaction metadata (for example, '
+        'follow requests or relationship states) may be visible to authenticated '
+        'Hypnos users.\n'
         '• When you publish a dream as "public": its content will be visible to '
         'other authenticated users of the app.\n'
         '• When required by law or a court order.',
@@ -459,7 +467,7 @@ const _privacyEn = [
     title: '7. Your rights',
     body:
         'You have the right to:\n\n'
-        '• Access your personal data by exporting it from the app.\n'
+        '• Request access to your personal data by contacting our privacy email.\n'
         '• Correct inaccurate data from the profile settings.\n'
         '• Delete your account and all associated data at Settings › Account & Security.\n'
         '• Object to notification-related data processing by disabling them at '
@@ -503,7 +511,9 @@ const _termsEn = [
     body:
         'By creating an account or using Hypnos Dream Journal ("the Service"), '
         'you agree to these Terms & Conditions. If you do not agree, do not use '
-        'the app.',
+        'the app.\n\n'
+        'To create an account, you must explicitly accept these Terms and the '
+        'Privacy Policy during registration.',
   ),
   _Section(
     title: '2. Your account',
@@ -550,8 +560,8 @@ const _termsEn = [
         'When you publish a dream as "public", any authenticated Hypnos user '
         'can view, comment, and react to it. You may change visibility or delete '
         'posts at any time.\n\n'
-        'Follow requests require the recipient\'s acceptance. You can block or '
-        'remove followers from your profile.',
+        'Follow requests require the recipient\'s acceptance. You can remove '
+        'followers from your profile.',
   ),
   _Section(
     title: '7. Prohibited uses',

@@ -3,7 +3,7 @@
 Estado: Borrador
 
 ## 1. Objetivo
-Garantizar trazabilidad completa entre requisitos, implementacion, pruebas y evidencia.
+Garantizar trazabilidad completa entre requisitos, implementación, pruebas y evidencia.
 
 ## 2. Estructura de matriz
 | Req ID | Requisito | Componente/Archivo | Prueba (ID) | Evidencia | Estado |
@@ -13,7 +13,7 @@ Garantizar trazabilidad completa entre requisitos, implementacion, pruebas y evi
 | RQ-003 | Seguridad acceso | firestore.rules | Security T-01..T-N | EV-030 | Pendiente |
 
 ## 3. Criterios de completitud
-- Todo requisito critico debe tener al menos una prueba ejecutada.
+- Todo requisito crítico debe tener al menos una prueba ejecutada.
 - Todo resultado debe tener evidencia asociada.
 - No cerrar documento con filas sin estado.
 

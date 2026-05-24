@@ -11,7 +11,6 @@ import 'package:hypnos_dreamjournal/features/dreams/presentation/dream_detail_sc
 import 'package:hypnos_dreamjournal/features/social/presentation/follow_users_list_screen.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/edit_profile_screen.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
-import 'package:hypnos_dreamjournal/features/social/presentation/comments_screen.dart';
 import 'package:hypnos_dreamjournal/features/social/presentation/follow_requests_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
 import 'package:hypnos_dreamjournal/shared/errors/result.dart';
@@ -87,15 +86,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => DreamDetailScreen(dream: dream)));
-  }
-
-  void _openComments(String dreamId, String dreamTitle) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            CommentsScreen(dreamId: dreamId, dreamTitle: dreamTitle),
-      ),
-    );
   }
 
   @override
@@ -304,10 +294,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     data: data,
                                     currentUserId: uid,
                                     social: _social,
-                                    onCommentsTap: () => _openComments(
-                                      dreamId,
-                                      data['title'] as String? ?? '',
-                                    ),
                                     onTap: () {
                                       final dream = Dream.fromFirestore(
                                         data,
@@ -546,7 +532,6 @@ class _PublicDreamCard extends StatelessWidget {
     required this.data,
     required this.currentUserId,
     required this.social,
-    required this.onCommentsTap,
     required this.onTap,
   });
 
@@ -554,7 +539,6 @@ class _PublicDreamCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final String currentUserId;
   final SocialRepository social;
-  final VoidCallback onCommentsTap;
   final VoidCallback onTap;
 
   @override
@@ -562,7 +546,6 @@ class _PublicDreamCard extends StatelessWidget {
     final title = data['title'] as String? ?? '';
     final text = data['text'] as String? ?? '';
     final likesCount = data['likesCount'] as int? ?? 0;
-    final commentsCount = data['commentsCount'] as int? ?? 0;
     final publishedAt = (data['publishedAt'] as dynamic)?.toDate() as DateTime?;
 
     return GestureDetector(
@@ -651,27 +634,6 @@ class _PublicDreamCard extends StatelessWidget {
                       ),
                     );
                   },
-                ),
-                const SizedBox(width: AppSpacing.md),
-                GestureDetector(
-                  onTap: onCommentsTap,
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        color: AppColors.textSecondary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        commentsCount.toString(),
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ),

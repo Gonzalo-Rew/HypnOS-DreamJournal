@@ -1,14 +1,14 @@
-# Anexo A01 - Paquete de Evidencias Tecnicas
+# Anexo A01 - Paquete de Evidencias Técnicas
 
 Estado: Borrador
 
 ## 1. Objetivo
-Centralizar evidencias verificables que respaldan afirmaciones de la memoria y documentos tecnicos.
+Centralizar evidencias verificables que respaldan afirmaciones de la memoria y documentos técnicos.
 
-## 2. Convencion de evidencias
+## 2. Convención de evidencias
 - ID: EV-XXX
 - Fecha
-- Version/build
+- Versión/build
 - Entorno
 - Fuente
 - Resultado

@@ -4,16 +4,16 @@ Estado: Borrador
 Responsable: Firebase Backend Security Agent
 
 ## 1. Objetivo
-Definir la arquitectura backend en Firebase y demostrar el modelo de autorizacion aplicado.
+Definir la arquitectura backend en Firebase y demostrar el modelo de autorización aplicado.
 
 ## 2. Modelo de datos
 ### 2.1 Colecciones y subcolecciones
 ### 2.2 Campos principales
 ### 2.3 Indices y consultas relevantes
 
-## 3. Autenticacion y autorizacion
+## 3. Autenticación y autorización
 ### 3.1 Auth (metodos y restricciones)
-### 3.2 Matriz de acceso por recurso y operacion
+### 3.2 Matriz de acceso por recurso y operación
 ### 3.3 Principio de minimo privilegio
 
 ## 4. Reglas de seguridad
@@ -21,7 +21,7 @@ Definir la arquitectura backend en Firebase y demostrar el modelo de autorizacio
 ### 4.2 Storage Rules
 ### 4.3 Casos permitidos y denegados
 
-## 5. Verificacion tecnica
+## 5. Verificación técnica
 - Estrategia de pruebas de reglas.
 - Resultados resumidos.
 - Riesgo residual.

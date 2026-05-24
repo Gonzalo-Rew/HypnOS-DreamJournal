@@ -7,6 +7,7 @@ import 'package:hypnos_dreamjournal/app/theme/app_dimensions.dart';
 import 'package:hypnos_dreamjournal/data/models/dream_model.dart';
 import 'package:hypnos_dreamjournal/data/repositories/dream_repository.dart';
 import 'package:hypnos_dreamjournal/data/services/firebase_service.dart';
+import 'package:hypnos_dreamjournal/data/services/gemini_service.dart';
 import 'package:hypnos_dreamjournal/features/dashboard/presentation/dashboard_refresh_bus.dart';
 import 'package:hypnos_dreamjournal/features/settings/presentation/settings_screen.dart';
 import 'package:hypnos_dreamjournal/l10n/app_localizations.dart';
@@ -30,6 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const String _notLoggedInErrorCode = 'dashboard_not_logged_in';
   late final VoidCallback _refreshBusListener;
   _IntensityRange _intensityRange = _IntensityRange.week;
+  _TagFacet _tagFacet = _TagFacet.all;
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -99,7 +101,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final metrics = _DashboardMetrics.fromDreams(_dreams);
+    final metrics = _DashboardMetrics.fromDreams(
+      _dreams,
+      localeCode: Localizations.localeOf(context).languageCode,
+    );
     final resolvedErrorMessage = _errorMessage == _notLoggedInErrorCode
         ? l.dashboardNotLoggedIn
         : _errorMessage;
@@ -166,7 +171,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: AppSpacing.md),
                           _TopCategoriesCard(metrics: metrics),
                           const SizedBox(height: AppSpacing.md),
-                          _RecurringElementsCard(metrics: metrics),
+                          _RecurringElementsCard(
+                            metrics: metrics,
+                            selectedFacet: _tagFacet,
+                            onFacetChanged: (facet) {
+                              setState(() {
+                                _tagFacet = facet;
+                              });
+                            },
+                          ),
                           const SizedBox(height: AppSpacing.md),
                           _CorrelationCard(dreams: _dreams),
                         ],
@@ -188,7 +201,7 @@ class _DashboardMetrics {
   final List<Dream> moodSeries7d;
   final List<_WeekCount> weekCounts;
   final List<MapEntry<String, int>> topCategories;
-  final List<MapEntry<String, int>> topTags;
+  final Map<_TagFacet, List<MapEntry<String, int>>> topTagsByFacet;
 
   const _DashboardMetrics({
     required this.totalDreams,
@@ -198,10 +211,13 @@ class _DashboardMetrics {
     required this.moodSeries7d,
     required this.weekCounts,
     required this.topCategories,
-    required this.topTags,
+    required this.topTagsByFacet,
   });
 
-  factory _DashboardMetrics.fromDreams(List<Dream> dreams) {
+  factory _DashboardMetrics.fromDreams(
+    List<Dream> dreams, {
+    required String localeCode,
+  }) {
     final now = DateTime.now();
     final withMood = dreams.where((d) => d.moodScore != null).toList();
     final avgMood = withMood.isEmpty
@@ -223,7 +239,7 @@ class _DashboardMetrics {
 
     final weekCounts = _buildLastSixWeeks(dreams, now);
     final topCategories = _buildTopCategories(dreams);
-    final topTags = _buildTopTags(dreams);
+    final topTagsByFacet = _buildTopTagsByFacet(dreams, localeCode: localeCode);
 
     return _DashboardMetrics(
       totalDreams: dreams.length,
@@ -233,7 +249,7 @@ class _DashboardMetrics {
       moodSeries7d: moodSeries7d,
       weekCounts: weekCounts,
       topCategories: topCategories,
-      topTags: topTags,
+      topTagsByFacet: topTagsByFacet,
     );
   }
 
@@ -285,19 +301,121 @@ class _DashboardMetrics {
     return sorted.take(6).toList();
   }
 
-  static List<MapEntry<String, int>> _buildTopTags(List<Dream> dreams) {
-    final freq = <String, int>{};
-    for (final d in dreams) {
-      for (final tag in d.tags) {
-        if (_isIntensityTag(tag)) {
-          continue;
-        }
-        final normalized = _normalizeLabel(tag);
-        if (normalized.isNotEmpty) {
-          freq[normalized] = (freq[normalized] ?? 0) + 1;
+  static Map<_TagFacet, List<MapEntry<String, int>>> _buildTopTagsByFacet(
+    List<Dream> dreams, {
+    required String localeCode,
+  }) {
+    final freqByFacet = <_TagFacet, Map<String, int>>{
+      _TagFacet.all: <String, int>{},
+      _TagFacet.emotions: <String, int>{},
+      _TagFacet.characters: <String, int>{},
+      _TagFacet.places: <String, int>{},
+      _TagFacet.themes: <String, int>{},
+    };
+
+    for (final dream in dreams) {
+      final analysis = _analysisForDream(dream, localeCode);
+      if (analysis == null) continue;
+
+      _accumulateFacet(freqByFacet[_TagFacet.all]!, analysis.emotions);
+      _accumulateFacet(freqByFacet[_TagFacet.all]!, analysis.characters);
+      _accumulateFacet(freqByFacet[_TagFacet.all]!, analysis.places);
+      _accumulateFacet(freqByFacet[_TagFacet.all]!, analysis.themes);
+
+      _accumulateFacet(freqByFacet[_TagFacet.emotions]!, analysis.emotions);
+      _accumulateFacet(freqByFacet[_TagFacet.characters]!, analysis.characters);
+      _accumulateFacet(freqByFacet[_TagFacet.places]!, analysis.places);
+      _accumulateFacet(freqByFacet[_TagFacet.themes]!, analysis.themes);
+    }
+
+    return {
+      for (final entry in freqByFacet.entries)
+        entry.key: _sortedEntries(entry.value),
+    };
+  }
+
+  static DreamAnalysis? _analysisForDream(Dream dream, String localeCode) {
+    final preferred = _analysisMapForLocale(
+      dream.aiAnalysisByLanguage,
+      localeCode,
+    );
+    final fallback =
+        dream.aiAnalysis ?? _firstAvailableAnalysis(dream.aiAnalysisByLanguage);
+    final data = preferred ?? fallback;
+    if (data == null || data.isEmpty) return null;
+
+    List<String> readList(String key) {
+      final raw = data[key];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    return DreamAnalysis(
+      sentiment: data['sentiment'] as String? ?? '',
+      category: data['category'] as String? ?? '',
+      emotions: readList('emotions'),
+      characters: readList('characters'),
+      places: readList('places'),
+      themes: readList('themes'),
+      psychologicalNote: data['psychologicalNote'] as String? ?? '',
+      summary: data['summary'] as String? ?? '',
+    );
+  }
+
+  static Map<String, dynamic>? _analysisMapForLocale(
+    Map<String, dynamic>? raw,
+    String localeCode,
+  ) {
+    if (raw == null || raw.isEmpty) return null;
+
+    final exact = raw[localeCode];
+    if (exact is Map) {
+      final mapped = Map<String, dynamic>.from(exact);
+      if (mapped.isNotEmpty) return mapped;
+    }
+
+    for (final entry in raw.entries) {
+      if (entry.key.toString().toLowerCase().startsWith(
+        localeCode.toLowerCase(),
+      )) {
+        final value = entry.value;
+        if (value is Map) {
+          final mapped = Map<String, dynamic>.from(value);
+          if (mapped.isNotEmpty) return mapped;
         }
       }
     }
+
+    return null;
+  }
+
+  static Map<String, dynamic>? _firstAvailableAnalysis(
+    Map<String, dynamic>? raw,
+  ) {
+    if (raw == null || raw.isEmpty) return null;
+    for (final value in raw.values) {
+      if (value is Map) {
+        final mapped = Map<String, dynamic>.from(value);
+        if (mapped.isNotEmpty) return mapped;
+      }
+    }
+    return null;
+  }
+
+  static void _accumulateFacet(Map<String, int> freq, Iterable<String> values) {
+    for (final value in values) {
+      final normalized = _normalizeLabel(value);
+      if (normalized.isEmpty) continue;
+      freq[normalized] = (freq[normalized] ?? 0) + 1;
+    }
+  }
+
+  static List<MapEntry<String, int>> _sortedEntries(Map<String, int> freq) {
     final sorted = freq.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return sorted.take(8).toList();
@@ -319,11 +437,6 @@ class _DashboardMetrics {
         )
         .join(' ');
   }
-
-  static bool _isIntensityTag(String value) {
-    final normalized = value.trim().toLowerCase();
-    return RegExp(r'^mood:\s*[1-5]$').hasMatch(normalized);
-  }
 }
 
 class _WeekCount {
@@ -342,6 +455,7 @@ String _localizeEntityLabel(String raw, {required bool isSpanish}) {
   }
 
   const es = <String, String>{
+    'dreamer': 'Soñador',
     'anxiety': 'Ansiedad',
     'nightmare': 'Pesadilla',
     'fantasy': 'Fantasía',
@@ -365,6 +479,7 @@ String _localizeEntityLabel(String raw, {required bool isSpanish}) {
   };
 
   const en = <String, String>{
+    'dreamer': 'Dreamer',
     'anxiety': 'Anxiety',
     'nightmare': 'Nightmare',
     'fantasy': 'Fantasy',
@@ -399,6 +514,8 @@ String? _entityCanonicalKey(String raw) {
   if (normalized.isEmpty) return null;
 
   const dictionary = <String, String>{
+    'sonador': 'dreamer',
+    'dreamer': 'dreamer',
     'ansiedad': 'anxiety',
     'anxiety': 'anxiety',
     'pesadilla': 'nightmare',
@@ -1482,19 +1599,29 @@ class _TopCategoriesCard extends StatelessWidget {
 // --- Recurring elements card (tags as chips) ---
 
 class _RecurringElementsCard extends StatelessWidget {
-  const _RecurringElementsCard({required this.metrics});
+  const _RecurringElementsCard({
+    required this.metrics,
+    required this.selectedFacet,
+    required this.onFacetChanged,
+  });
   final _DashboardMetrics metrics;
+  final _TagFacet selectedFacet;
+  final ValueChanged<_TagFacet> onFacetChanged;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    if (metrics.topTags.isEmpty) return const SizedBox.shrink();
-    final isEs = Localizations.localeOf(
+    final localeCode = Localizations.localeOf(
       context,
-    ).languageCode.toLowerCase().startsWith('es');
-    final tagsTooltip = isEs
-        ? 'Etiquetas: palabras clave extraídas (temas y emociones) para agrupar sueños por elementos recurrentes. No representan la categoría principal del sueño.'
-        : 'Tags: extracted keywords (themes and emotions) used to group dreams by recurring elements. They are not the dream main category.';
+    ).languageCode.toLowerCase();
+    final isEs = localeCode.startsWith('es');
+    final items = metrics.topTagsFor(selectedFacet);
+    final emptyTitle = isEs
+        ? 'Sin datos para este filtro'
+        : 'No data for this filter';
+    final emptyMessage = isEs
+        ? 'Cambia a “Todas” o elige otro tipo para ver elementos recurrentes.'
+        : 'Switch back to All or choose another type to see recurring elements.';
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1518,60 +1645,142 @@ class _RecurringElementsCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Tooltip(
-                message: tagsTooltip,
-                triggerMode: TooltipTriggerMode.tap,
-                waitDuration: const Duration(milliseconds: 120),
-                showDuration: const Duration(seconds: 6),
+              Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                textStyle: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 1.35,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2030).withValues(alpha: 0.96),
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppColors.surfaceGlass.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.accentSecondary.withValues(alpha: 0.45),
+                    color: AppColors.accentSecondary.withValues(alpha: 0.28),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accentSecondary.withValues(alpha: 0.14),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
-                child: const Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: AppColors.accentSecondary,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<_TagFacet>(
+                    value: selectedFacet,
+                    isDense: true,
+                    borderRadius: BorderRadius.circular(14),
+                    dropdownColor: const Color(0xFF1A2030),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: AppColors.accentSecondary,
+                    ),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    onChanged: (facet) {
+                      if (facet != null) onFacetChanged(facet);
+                    },
+                    items: _TagFacet.values
+                        .map(
+                          (facet) => DropdownMenuItem<_TagFacet>(
+                            value: facet,
+                            child: Text(facet.label(l, localeCode)),
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: metrics.topTags
-                .map(
-                  (e) => _EntityChip(
-                    label:
-                        '${_localizeEntityLabel(e.key, isSpanish: isEs)} (${e.value})',
-                    toneColor: AppColors.accentSecondary,
+          if (items.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceGlass.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    emptyTitle,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                )
-                .toList(),
-          ),
+                  const SizedBox(height: 4),
+                  Text(
+                    emptyMessage,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton(
+                    onPressed: selectedFacet == _TagFacet.all
+                        ? null
+                        : () => onFacetChanged(_TagFacet.all),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accentSecondary,
+                      side: BorderSide(
+                        color: AppColors.accentSecondary.withValues(alpha: 0.5),
+                      ),
+                      minimumSize: const Size.fromHeight(40),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(isEs ? 'Ver todas' : 'View all'),
+                  ),
+                ],
+              ),
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: items
+                  .map(
+                    (e) => _EntityChip(
+                      label:
+                          '${_localizeEntityLabel(e.key, isSpanish: isEs)} (${e.value})',
+                      toneColor: AppColors.accentSecondary,
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );
+  }
+}
+
+extension on _DashboardMetrics {
+  List<MapEntry<String, int>> topTagsFor(_TagFacet facet) {
+    return topTagsByFacet[facet] ?? const [];
+  }
+}
+
+enum _TagFacet { all, emotions, characters, places, themes }
+
+extension _TagFacetLabels on _TagFacet {
+  String label(AppLocalizations l, String localeCode) {
+    switch (this) {
+      case _TagFacet.all:
+        return localeCode.toLowerCase().startsWith('es') ? 'Todas' : 'All';
+      case _TagFacet.characters:
+        return l.dreamDetailAiCharacters;
+      case _TagFacet.places:
+        return l.dreamDetailAiPlaces;
+      case _TagFacet.emotions:
+        return l.dreamDetailAiEmotions;
+      case _TagFacet.themes:
+        return l.dreamDetailAiThemes;
+    }
   }
 }
 
@@ -1642,97 +1851,65 @@ class _CorrelationCardState extends State<_CorrelationCard> {
   List<_CorrelationInsight> _computeInsights(
     List<Dream> sourceDreams, {
     required int minDreamsRequired,
+    required String localeCode,
   }) {
     final withMood = sourceDreams.where((d) => d.moodScore != null).toList();
-    if (withMood.length < minDreamsRequired) {
+    final structuredSamples = withMood
+        .map(
+          (dream) =>
+              _CorrelationSample.fromDream(dream, localeCode: localeCode),
+        )
+        .whereType<_CorrelationSample>()
+        .toList();
+
+    if (structuredSamples.length < minDreamsRequired) {
       return const [];
     }
 
     final factors = <_FactorDefinition>[
       _FactorDefinition(
         key: 'water',
-        labelEs: 'Agua / inundacion',
+        labelEs: 'Agua / inundación',
         labelEn: 'Water / flooding',
-        predicate: (dream) => _containsAny(_dreamCorpus(dream), const [
-          'agua',
-          'mar',
-          'oceano',
-          'rio',
-          'inund',
-          'water',
-          'sea',
-        ]),
+        predicate: (sample) =>
+            sample.hasAnyCanonical(const ['water', 'flooding']),
       ),
       _FactorDefinition(
         key: 'pursuit',
         labelEs: 'Persecución / amenaza',
         labelEn: 'Pursuit / threat',
-        predicate: (dream) => _containsAny(_dreamCorpus(dream), const [
-          'persigu',
-          'huia',
-          'huir',
-          'amenaza',
-          'chase',
-          'pursuit',
-          'threat',
-          'followed',
-        ]),
+        predicate: (sample) =>
+            sample.hasAnyCanonical(const ['pursuit', 'threat']),
       ),
       _FactorDefinition(
         key: 'anxiety',
-        labelEs: 'Ansiedad / tension',
+        labelEs: 'Ansiedad / tensión',
         labelEn: 'Anxiety / tension',
-        predicate: (dream) => _containsAny(_dreamCorpus(dream), const [
-          'ansiedad',
-          'estres',
-          'miedo',
-          'urgencia',
-          'anxiety',
-          'stress',
-          'fear',
-          'panic',
-        ]),
+        predicate: (sample) =>
+            sample.hasAnyCanonical(const ['anxiety', 'stress', 'fear']),
       ),
       _FactorDefinition(
         key: 'fall',
         labelEs: 'Caída / pérdida de control',
         labelEn: 'Fall / loss of control',
-        predicate: (dream) => _containsAny(_dreamCorpus(dream), const [
-          'caida',
-          'caer',
-          'vacio',
-          'fall',
-          'falling',
-          'drop',
-        ]),
+        predicate: (sample) =>
+            sample.hasAnyCanonical(const ['fall', 'loss_control']),
       ),
       _FactorDefinition(
         key: 'flight',
         labelEs: 'Vuelo / libertad',
         labelEn: 'Flight / freedom',
-        predicate: (dream) => _containsAny(_dreamCorpus(dream), const [
-          'volar',
-          'vuelo',
-          'libertad',
-          'fly',
-          'flight',
-          'freedom',
-        ]),
-      ),
-      _FactorDefinition(
-        key: 'context_notes',
-        labelEs: 'Con notas de contexto',
-        labelEn: 'With context notes',
-        predicate: (dream) => (dream.contextNotes?.trim().isNotEmpty ?? false),
+        predicate: (sample) =>
+            sample.hasAnyCanonical(const ['flight', 'freedom']),
       ),
     ];
 
     final insights = <_CorrelationInsight>[];
     for (final factor in factors) {
-      final present = <Dream>[];
-      final absent = <Dream>[];
-      for (final dream in withMood) {
-        (factor.predicate(dream) ? present : absent).add(dream);
+      final present = <_CorrelationSample>[];
+      final absent = <_CorrelationSample>[];
+      for (final sample in structuredSamples) {
+        (factor.predicate(sample) ? present : absent).add(sample);
       }
 
       if (present.length < 2 || absent.length < 2) {
@@ -1740,7 +1917,7 @@ class _CorrelationCardState extends State<_CorrelationCard> {
       }
 
       final r = _pointBiserialCorrelation(
-        all: withMood,
+        all: structuredSamples,
         present: present,
         absent: absent,
       );
@@ -1748,7 +1925,7 @@ class _CorrelationCardState extends State<_CorrelationCard> {
         continue;
       }
 
-      final n = withMood.length;
+      final n = structuredSamples.length;
       final confidence = _confidenceScore(r.abs(), n);
       insights.add(
         _CorrelationInsight(
@@ -1767,39 +1944,22 @@ class _CorrelationCardState extends State<_CorrelationCard> {
     return insights.take(3).toList();
   }
 
-  static String _dreamCorpus(Dream dream) {
-    return [
-      dream.title,
-      dream.text,
-      dream.contextNotes ?? '',
-      dream.aiCategory ?? '',
-      dream.tags.join(' '),
-    ].join(' ').toLowerCase();
-  }
-
-  static bool _containsAny(String corpus, List<String> terms) {
-    for (final term in terms) {
-      if (corpus.contains(term)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   static double? _pointBiserialCorrelation({
-    required List<Dream> all,
-    required List<Dream> present,
-    required List<Dream> absent,
+    required List<_CorrelationSample> all,
+    required List<_CorrelationSample> present,
+    required List<_CorrelationSample> absent,
   }) {
-    final allValues = all.map((d) => d.moodScore!.toDouble()).toList();
+    final allValues = all
+        .map((item) => item.dream.moodScore!.toDouble())
+        .toList();
     final std = _stdDev(allValues);
     if (std <= 0) return null;
 
     final presentMean = _mean(
-      present.map((d) => d.moodScore!.toDouble()).toList(),
+      present.map((item) => item.dream.moodScore!.toDouble()).toList(),
     );
     final absentMean = _mean(
-      absent.map((d) => d.moodScore!.toDouble()).toList(),
+      absent.map((item) => item.dream.moodScore!.toDouble()).toList(),
     );
 
     final p = present.length / all.length;
@@ -1906,29 +2066,41 @@ class _CorrelationCardState extends State<_CorrelationCard> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isSpanish = Localizations.localeOf(
-      context,
-    ).languageCode.toLowerCase().startsWith('es');
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final isSpanish = localeCode.toLowerCase().startsWith('es');
     final scopedDreams = _scopedDreams();
     final minDreamsRequired = _minDreamsRequiredForRange;
     final dreamsWithMoodCount = scopedDreams
         .where((d) => d.moodScore != null)
         .length;
+    final dreamsWithStructuredAi = scopedDreams
+        .where((d) => d.moodScore != null)
+        .where(
+          (d) =>
+              _CorrelationSample.fromDream(d, localeCode: localeCode) != null,
+        )
+        .length;
     final insights = _computeInsights(
       scopedDreams,
       minDreamsRequired: minDreamsRequired,
+      localeCode: localeCode,
     );
     final needMoreMessage = isSpanish
         ? '${l.dashboardCorrelationNeedMore} Mínimo: $minDreamsRequired sueños.'
         : '${l.dashboardCorrelationNeedMore} Minimum: $minDreamsRequired dreams.';
+    final needAiAnalysisMessage = isSpanish
+        ? 'Necesitas más sueños analizados por Morfeo para detectar correlaciones.'
+        : 'You need more Morpheus-analyzed dreams to detect correlations.';
 
     final summary = insights.isEmpty
         ? (dreamsWithMoodCount < minDreamsRequired
               ? needMoreMessage
+              : dreamsWithStructuredAi < minDreamsRequired
+              ? needAiAnalysisMessage
               : l.dashboardCorrelationNeedMood)
         : (isSpanish
-              ? '${l.welcomeMorpheusTitle} detecta asociaciones estadísticas entre intensidad emocional y factores de tus registros.'
-              : '${l.welcomeMorpheusTitle} detects statistical associations between emotional intensity and factors in your records.');
+              ? '${l.welcomeMorpheusTitle} detecta asociaciones estadísticas entre intensidad emocional y señales estructuradas de IA.'
+              : '${l.welcomeMorpheusTitle} detects statistical associations between emotional intensity and structured AI signals.');
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -2087,7 +2259,130 @@ class _FactorDefinition {
   final String key;
   final String labelEs;
   final String labelEn;
-  final bool Function(Dream dream) predicate;
+  final bool Function(_CorrelationSample sample) predicate;
+}
+
+class _CorrelationSample {
+  const _CorrelationSample({
+    required this.dream,
+    required this.canonicalSignals,
+  });
+
+  final Dream dream;
+  final Set<String> canonicalSignals;
+
+  bool hasAnyCanonical(List<String> keys) {
+    for (final key in keys) {
+      if (canonicalSignals.contains(key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static _CorrelationSample? fromDream(
+    Dream dream, {
+    required String localeCode,
+  }) {
+    final rawAnalysis = _analysisMapFromDream(dream, localeCode: localeCode);
+    if (rawAnalysis == null || rawAnalysis.isEmpty) {
+      return null;
+    }
+
+    List<String> readList(String key) {
+      final raw = rawAnalysis[key];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    final analysis = DreamAnalysis(
+      sentiment: rawAnalysis['sentiment'] as String? ?? '',
+      category: rawAnalysis['category'] as String? ?? '',
+      emotions: readList('emotions'),
+      characters: readList('characters'),
+      places: readList('places'),
+      themes: readList('themes'),
+      psychologicalNote: rawAnalysis['psychologicalNote'] as String? ?? '',
+      summary: rawAnalysis['summary'] as String? ?? '',
+    );
+
+    final signals = <String>{};
+    void addSignal(String value) {
+      final key = _entityCanonicalKey(value);
+      if (key != null) {
+        signals.add(key);
+      }
+    }
+
+    addSignal(analysis.category);
+    for (final value in analysis.emotions) {
+      addSignal(value);
+    }
+    for (final value in analysis.characters) {
+      addSignal(value);
+    }
+    for (final value in analysis.places) {
+      addSignal(value);
+    }
+    for (final value in analysis.themes) {
+      addSignal(value);
+    }
+
+    if (signals.isEmpty) {
+      return null;
+    }
+
+    return _CorrelationSample(dream: dream, canonicalSignals: signals);
+  }
+
+  static Map<String, dynamic>? _analysisMapFromDream(
+    Dream dream, {
+    required String localeCode,
+  }) {
+    final byLanguage = dream.aiAnalysisByLanguage;
+    if (byLanguage != null && byLanguage.isNotEmpty) {
+      final exact = byLanguage[localeCode];
+      if (exact is Map) {
+        final mapped = Map<String, dynamic>.from(exact);
+        if (mapped.isNotEmpty) {
+          return mapped;
+        }
+      }
+
+      for (final entry in byLanguage.entries) {
+        if (entry.key.toLowerCase().startsWith(localeCode.toLowerCase())) {
+          final value = entry.value;
+          if (value is Map) {
+            final mapped = Map<String, dynamic>.from(value);
+            if (mapped.isNotEmpty) {
+              return mapped;
+            }
+          }
+        }
+      }
+
+      for (final value in byLanguage.values) {
+        if (value is Map) {
+          final mapped = Map<String, dynamic>.from(value);
+          if (mapped.isNotEmpty) {
+            return mapped;
+          }
+        }
+      }
+    }
+
+    final fallback = dream.aiAnalysis;
+    if (fallback != null && fallback.isNotEmpty) {
+      return fallback;
+    }
+
+    return null;
+  }
 }
 
 class _CorrelationInsight {

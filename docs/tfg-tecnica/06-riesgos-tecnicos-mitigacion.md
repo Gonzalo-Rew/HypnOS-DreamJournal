@@ -1,12 +1,12 @@
-# Documento 06 - Riesgos Tecnicos y Mitigacion
+# Documento 06 - Riesgos Técnicos y Mitigación
 
 Estado: Borrador
 Responsable: Software Decision Orchestrator
 
 ## 1. Objetivo
-Consolidar riesgos tecnicos reales, mitigaciones aplicadas y riesgo residual actual.
+Consolidar riesgos técnicos reales, mitigaciones aplicadas y riesgo residual actual.
 
-## 2. Metodologia de evaluacion de riesgos
+## 2. Metodología de evaluación de riesgos
 - Escala de impacto.
 - Escala de probabilidad.
 - Criterio de prioridad.
@@ -18,12 +18,12 @@ Consolidar riesgos tecnicos reales, mitigaciones aplicadas y riesgo residual act
 ### 3.4 Riesgos de calidad
 
 ## 4. Mitigaciones implementadas
-- Estado de ejecucion.
+- Estado de ejecución.
 - Evidencias.
 
 ## 5. Riesgo residual y plan de contingencia
 - Riesgos aceptados.
-- Planes de accion pendientes.
+- Planes de acción pendientes.
 
 ## 6. Evidencias base
 - [INTEGRATION_RISKS.md](../../INTEGRATION_RISKS.md)
