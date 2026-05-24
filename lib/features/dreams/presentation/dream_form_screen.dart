@@ -84,7 +84,7 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
       return null;
     }
 
-    if (trimmed.length < _minDreamDescriptionChars) {
+    if (!_hasActiveAudio && trimmed.length < _minDreamDescriptionChars) {
       return l.dreamFormDescriptionMin(_minDreamDescriptionChars);
     }
     return null;

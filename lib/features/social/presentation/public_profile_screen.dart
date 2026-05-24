@@ -698,6 +698,8 @@ class _PublicDreamDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            _PublicLikeBar(dreamId: dreamId),
             if (audioPaths.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               const Text(

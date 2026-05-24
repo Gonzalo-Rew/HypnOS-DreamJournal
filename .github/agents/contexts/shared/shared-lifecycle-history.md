@@ -19,16 +19,22 @@ El objetivo es facilitar la redaccion futura del documento TFG con trazabilidad 
 ## Historial
 
 - Fecha: 2026-05-24
-- Categoria: Agentes | Documentacion | TFG
-- Cambio: Se crea el paquete inicial de documentacion tecnica separada en `docs/tfg-tecnica/` con indice maestro, plantillas de arquitectura, backend/seguridad, functions/IA, QA, operacion, riesgos, compliance y anexos de evidencia/trazabilidad.
-- Impacto: Queda habilitada una base documental profesional para redactar el soporte tecnico del TFG sin mezclar detalle operativo con la memoria principal.
-- Evidencia: docs/tfg-tecnica/00-indice-documentacion-tecnica.md, docs/tfg-tecnica/01-arquitectura-tecnica-e2e.md, docs/tfg-tecnica/02-backend-firebase-control-acceso.md, docs/tfg-tecnica/03-cloud-functions-ia.md, docs/tfg-tecnica/04-qa-trazabilidad-resultados.md, docs/tfg-tecnica/05-operacion-despliegue-rollback.md, docs/tfg-tecnica/06-riesgos-tecnicos-mitigacion.md, docs/tfg-tecnica/07-compliance-privacidad-consentimiento.md, docs/tfg-tecnica/A01-anexo-evidencias-tecnicas.md, docs/tfg-tecnica/A02-matriz-trazabilidad-requisito-prueba.md.
+- Categoria: Documentacion | TFG | Agentes
+- Cambio: Se unifica la documentacion en un unico documento fuente (`docs/memoria-principal-borrador.md`) integrando dentro de la propia memoria el detalle tecnico de codigo, el anexo de evidencias y la matriz de trazabilidad. Se eliminan archivos markdown auxiliares en `docs/tfg-tecnica` y `docs/anteproyecto.txt`.
+- Impacto: Estructura de entrega simplificada y alineada con criterio memoria-principal como unico artefacto textual evaluable.
+- Evidencia: docs/memoria-principal-borrador.md, docs/tfg-tecnica (limpieza de markdown), .github/agents/contexts/shared/shared-lifecycle-history.md.
 
 - Fecha: 2026-05-24
-- Categoria: QA | Release | Documentacion | TFG
-- Cambio: Se define paquete QA profesional para memoria TFG, alineado con `QA_TEST_PLAN.md` y checklist de release, incluyendo estructura de plan, trazabilidad, evidencias, resultados, regresion, criterios de aceptacion y mapa minimo de metricas.
-- Impacto: Queda establecido un marco verificable para evaluacion academica y readiness de release con evidencia auditable y orden de validacion.
-- Evidencia: QA_TEST_PLAN.md, .github/docs/checklists/qa-release-checklist.md.
+- Categoria: Documentacion | TFG | Agentes
+- Cambio: Refactor documental a estrategia memoria-principal. Se consolida la documentacion tecnica en un unico archivo de soporte de codigo y se eliminan los markdown fragmentados por dominio (01..07). Se actualizan referencias de memoria y anexos para trazabilidad con EV hacia el nuevo documento unificado.
+- Impacto: Reduce dispersion documental, mejora legibilidad para evaluacion DAM y deja fuera de memoria solo detalle implementativo no narrativo.
+- Evidencia: docs/memoria-principal-borrador.md, docs/tfg-tecnica/documentacion-tecnica-codigo.md, docs/tfg-tecnica/00-indice-documentacion-tecnica.md, docs/tfg-tecnica/A01-anexo-evidencias-tecnicas.md.
+
+- Fecha: 2026-05-24
+- Categoria: QA | Release | Documentacion
+- Cambio: Se incorpora en la memoria principal un cierre de calidad orientado a tribunal DAM con estructura de resultados, KPIs de release, tabla de metricas en estado de consolidacion, criterios Go/No-Go por plataforma (Android/iOS) y plan de mitigacion de riesgos residuales.
+- Impacto: Mejora la trazabilidad de readiness de release y deja un marco formal para decision de salida sin cerrar resultados sin evidencia consolidada.
+- Evidencia: docs/memoria-principal-borrador.md (seccion 9.1), .github/docs/checklists/qa-release-checklist.md.
 
 - Fecha: 2026-05-24
 - Categoria: Agentes | Documentacion | TFG
