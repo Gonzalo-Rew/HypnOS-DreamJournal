@@ -53,6 +53,7 @@ Todos los agentes deben leerlo antes de proponer cambios y actualizarlo cuando e
 - Firebase Backend Security Agent: responsable de Auth, reglas, Functions y seguridad backend.
 - QA Release Agent: responsable de validacion transversal y readiness de release.
 - Data Insights Agent: responsable de metrica, eventos e insights de patrones.
+- Project Memory Documentation Agent: responsable de redaccion tecnica de memoria/manuales TFG, trazabilidad de evidencia y referencias IEEE.
 
 ## Documentos operativos de agentes
 - Coordinacion global: .github/agents/contexts/shared/shared-agent-coordination.md
@@ -60,6 +61,7 @@ Todos los agentes deben leerlo antes de proponer cambios y actualizarlo cuando e
 - Runbook backend Firebase: .github/docs/guides/firebase-backend-runbook.md
 - Checklist QA/Release: .github/docs/checklists/qa-release-checklist.md
 - Contexto de metricas/insights: .github/agents/contexts/specialized/data-insights-metric-context.md
+- Contexto de memoria y manuales TFG: .github/agents/contexts/specialized/project-memory-context.md
 
 ## Versionado y ramas
 - Convencion: feat/mvp-vX → merge a main → tag semantico vX.Y.Z → release APK
@@ -77,5 +79,5 @@ Todos los agentes deben leerlo antes de proponer cambios y actualizarlo cuando e
 - Alternativa secundaria: GitHub Releases (APK adjunta al tag de version)
 
 ## Ultima actualizacion
-- Fecha: 2026-05-16
-- Nota: Sistema de versionado semantico vinculado a ramas establecido. Tag v1.0.0 publicado.
+- Fecha: 2026-05-24
+- Nota: Se integra agente especializado de memoria/manuales TFG con contexto dedicado y coordinacion multiagente.

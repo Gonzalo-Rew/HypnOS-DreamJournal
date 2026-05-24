@@ -25,6 +25,7 @@ Este documento define como se coordinan los agentes del proyecto para evitar sol
 - Firebase Backend Security Agent: Auth, Firestore/Storage rules, Functions, seguridad y despliegue backend.
 - QA Release Agent: pruebas, regresion, hardening pre-release, checklist de entrega.
 - Data Insights Agent: eventos, metrica de producto, modelos de analitica y dashboards.
+- Project Memory Documentation Agent: memoria del proyecto y manuales TFG, redaccion tecnica, trazabilidad de evidencia y referencias IEEE.
 
 ## Criterios para delegar
 - Priorizacion tecnica, decisiones de alcance y coordinacion multi-dominio: delegar a Software Decision Orchestrator.
@@ -32,3 +33,4 @@ Este documento define como se coordinan los agentes del proyecto para evitar sol
 - Seguridad de datos o reglas de acceso: delegar a Firebase Backend Security Agent.
 - Preparacion de release o validacion transversal: delegar a QA Release Agent.
 - Definicion de metricas o analitica de patrones: delegar a Data Insights Agent.
+- Elaboracion de memoria/manuales TFG, narrativa tecnica y referencias IEEE: delegar a Project Memory Documentation Agent.

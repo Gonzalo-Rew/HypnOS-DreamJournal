@@ -18,6 +18,206 @@ El objetivo es facilitar la redaccion futura del documento TFG con trazabilidad 
 
 ## Historial
 
+- Fecha: 2026-05-24
+- Categoria: Agentes | Documentacion | TFG
+- Cambio: Se crea el paquete inicial de documentacion tecnica separada en `docs/tfg-tecnica/` con indice maestro, plantillas de arquitectura, backend/seguridad, functions/IA, QA, operacion, riesgos, compliance y anexos de evidencia/trazabilidad.
+- Impacto: Queda habilitada una base documental profesional para redactar el soporte tecnico del TFG sin mezclar detalle operativo con la memoria principal.
+- Evidencia: docs/tfg-tecnica/00-indice-documentacion-tecnica.md, docs/tfg-tecnica/01-arquitectura-tecnica-e2e.md, docs/tfg-tecnica/02-backend-firebase-control-acceso.md, docs/tfg-tecnica/03-cloud-functions-ia.md, docs/tfg-tecnica/04-qa-trazabilidad-resultados.md, docs/tfg-tecnica/05-operacion-despliegue-rollback.md, docs/tfg-tecnica/06-riesgos-tecnicos-mitigacion.md, docs/tfg-tecnica/07-compliance-privacidad-consentimiento.md, docs/tfg-tecnica/A01-anexo-evidencias-tecnicas.md, docs/tfg-tecnica/A02-matriz-trazabilidad-requisito-prueba.md.
+
+- Fecha: 2026-05-24
+- Categoria: QA | Release | Documentacion | TFG
+- Cambio: Se define paquete QA profesional para memoria TFG, alineado con `QA_TEST_PLAN.md` y checklist de release, incluyendo estructura de plan, trazabilidad, evidencias, resultados, regresion, criterios de aceptacion y mapa minimo de metricas.
+- Impacto: Queda establecido un marco verificable para evaluacion academica y readiness de release con evidencia auditable y orden de validacion.
+- Evidencia: QA_TEST_PLAN.md, .github/docs/checklists/qa-release-checklist.md.
+
+- Fecha: 2026-05-24
+- Categoria: Agentes | Documentacion | TFG
+- Cambio: Se crea el agente `Project Memory Documentation Agent` y su contexto especializado para elaborar memoria y manuales del TFG con enfoque tecnico, coordinacion multiagente y politica de referencias IEEE.
+- Impacto: Queda habilitado un flujo dedicado para redaccion evaluable con trazabilidad de evidencia del proyecto y soporte de validacion cruzada con agentes especialistas.
+- Evidencia: .github/agents/project-memory-documentation.agent.md, .github/agents/contexts/specialized/project-memory-context.md, .github/agents/contexts/shared/shared-app-context.md, .github/agents/contexts/shared/shared-agent-coordination.md.
+
+- Fecha: 2026-05-24
+- Categoria: Notifications | UX | Bugfix
+- Cambio: Se aplica parche minimo en el scheduler local de recordatorio diario para usuarios legacy: en `NotificationService` se alinea el fallback de `notificationsEnabled` a `true` (antes `false`) cuando el campo no existe en `users/{uid}`.
+- Impacto: Evita que el recordatorio diario quede desactivado silenciosamente en perfiles sin `notificationsEnabled` persistido, alineando comportamiento con `User.fromFirestore` y la UI.
+- Evidencia: lib/data/services/notification_service.dart, `flutter analyze lib/data/services/notification_service.dart` (No issues found).
+
+- Fecha: 2026-05-24
+- Categoria: Notifications | Android | Timezone
+- Cambio: Se endurece la inicializacion de recordatorios locales: `NotificationService` ahora registra error y hace fallback explicito de timezone a `UTC` si falla `FlutterTimezone`, y solicita permiso de notificaciones locales en Android mediante `requestNotificationsPermission()`.
+- Impacto: Reduce casos en los que el recordatorio diario no se dispara por fallo de resolucion de zona horaria o por permiso local no concedido en Android 13+.
+- Evidencia: lib/data/services/notification_service.dart, `flutter analyze lib/data/services/notification_service.dart` (No issues found).
+
+- Fecha: 2026-05-24
+- Categoria: Notifications | Debug
+- Cambio: Se instrumenta trazabilidad de recordatorios diarios con logs en puntos criticos (`Init`, `Start`, `Snapshot`, `Apply`, `Schedule`, `Cancel`) y verificacion de `pendingNotificationRequests` tras programar.
+- Impacto: Permite diagnosticar rapidamente si el problema esta en lectura de ajustes de Firestore, parseo de hora, timezone local o programacion efectiva de la notificacion local.
+- Evidencia: lib/data/services/notification_service.dart, `flutter analyze lib/data/services/notification_service.dart` (No issues found).
+
+- Fecha: 2026-05-24
+- Categoria: Firebase | Auth | Profile | Storage
+- Cambio: Se corrige el `PERMISSION_DENIED` al quitar la foto de perfil. El cliente deja de persistir `photoUrl: null` y pasa a borrar el campo con `FieldValue.delete()`, además de rehidratar `displayName` si faltaba en documentos legacy; en Firestore Rules se explicita que `photoUrl` puede ser `null` o `string` en updates del owner.
+- Impacto: El usuario propietario ya puede eliminar su avatar sin bloqueo por permisos y los perfiles antiguos con `displayName` mal persistido dejan de romper updates simples de perfil.
+- Evidencia: lib/data/repositories/auth_repository.dart, firestore.rules, `flutter analyze lib/data/repositories/auth_repository.dart lib/features/settings/presentation/edit_profile_screen.dart lib/data/models/user_model.dart` (sin errores nuevos; 1 info deprecado preexistente), `firebase deploy --only firestore:rules --project hypnos-dream-journal` (EXIT 0).
+
+- Fecha: 2026-05-24
+- Categoria: Compliance | Legal | Deploy
+- Cambio: Se ajustan Terminos y Politica para explicitar que crear cuenta requiere aceptar expresamente ambos documentos y para transparentar que, en funciones sociales, cierta metadata de interaccion puede ser visible entre usuarios autenticados. Se completa despliegue de reglas y funciones en Firebase.
+- Impacto: Los 4 puntos de seguridad/compliance acordados quedan aplicados y activos en entorno Firebase del proyecto.
+- Evidencia: lib/features/settings/presentation/legal_screen.dart, firebase deploy --only firestore:rules,storage,functions --project hypnos-dream-journal, firebase functions:list --project hypnos-dream-journal.
+
+- Fecha: 2026-05-24
+- Categoria: UX | Profile | Auth | Storage
+- Cambio: Se añade la opción de quitar la foto de perfil desde editar perfil. La pantalla expone acción explícita `Quitar avatar`, el repositorio de auth soporta limpieza intencional de `photoUrl` (`clearPhotoUrl`) y el borrado del archivo de Storage se hace en best-effort tolerando `object-not-found`.
+- Impacto: El usuario ya puede volver al avatar por iniciales después de haber subido una imagen, sin quedar bloqueado en un estado con foto permanente.
+- Evidencia: lib/features/settings/presentation/edit_profile_screen.dart, lib/data/repositories/auth_repository.dart, lib/data/models/user_model.dart, lib/l10n/app_es.arb, lib/l10n/app_en.arb, `flutter analyze lib/features/settings/presentation/edit_profile_screen.dart lib/data/repositories/auth_repository.dart lib/data/models/user_model.dart` (sin errores nuevos; 1 info preexistente deprecado en auth_repository.dart).
+
+
+- Fecha: 2026-05-24
+- Categoria: Compliance | Auth | Functions | Legal
+- Cambio: Se refuerza cumplimiento de privacidad con dos medidas: (1) consentimiento legal explicito en registro (checkbox obligatorio) y persistencia versionada de aceptacion (`termsAcceptedAt`, `privacyAcceptedAt`, `termsVersion`, `privacyVersion`) en `users/{uid}`; (2) limpieza integral de datos al eliminar cuenta mediante trigger de Auth (`cleanupUserDataOnAuthDelete`) que elimina datos Firestore relacionados y archivos de Storage bajo `users/{uid}/`. Ademas se actualiza el texto legal para eliminar claims no implementados (exportacion in-app y bloqueo de seguidores).
+- Impacto: Mejora trazabilidad de consentimiento, reduce riesgo de datos huerfanos tras baja de cuenta y alinea politicas/terminos con capacidades reales de la app.
+- Evidencia: lib/features/auth/presentation/register_screen.dart, lib/data/repositories/auth_repository.dart, lib/data/models/user_model.dart, lib/core/constants/app_constants.dart, firestore.rules, functions/src/index.ts, lib/features/settings/presentation/legal_screen.dart.
+
+- Fecha: 2026-05-24
+- Categoria: UX | IA | Dreams
+- Cambio: Se habilita analisis de suenos solo-audio en detalle. `DreamDetailScreen` ahora usa `transcription` si `text` esta vacio y, si no existe transcripcion guardada, intenta transcribir audios remotos (`audioPaths`) antes de llamar a Morfeo.
+- Impacto: Los suenos ya creados con solo audio pueden analizarse desde detalle usando transcripcion, evitando error por texto vacio.
+- Evidencia: lib/features/dreams/presentation/dream_detail_screen.dart, `flutter analyze lib/features/dreams/presentation/dream_detail_screen.dart lib/features/dreams/presentation/dream_analysis_step_screen.dart` (No issues found).
+
+- Fecha: 2026-05-23
+- Categoria: Auth | UX | Android
+- Cambio: Se elimina la opción visible de "Continuar con Apple" en las pantallas de inicio de sesión y registro para evitar intentos de autenticación Apple no soportados/configurados en el flujo actual.
+- Impacto: El usuario ya no puede disparar el flujo de Apple Sign-In desde UI; se reduce fricción y errores en login.
+- Evidencia: lib/features/auth/presentation/login_screen.dart, lib/features/auth/presentation/register_screen.dart, `flutter analyze lib/features/auth/presentation/login_screen.dart lib/features/auth/presentation/register_screen.dart` (sin errores nuevos; 1 info de lint preexistente).
+
+- Fecha: 2026-05-23
+- Categoria: Auth | Android | Firebase
+- Cambio: Se corrige el flujo `signInWithApple` en Flutter para Android/Web añadiendo `webAuthenticationOptions` (requerido por `sign_in_with_apple`) y validación defensiva de configuración. El `clientId` se lee desde `--dart-define=APPLE_SERVICE_ID` y el `redirectUri` desde `--dart-define=APPLE_REDIRECT_URI` o fallback a `https://<projectId>.firebaseapp.com/__/auth/handler`.
+- Impacto: Se elimina el crash/excepción `webAuthenticationOptions argument must be provided on Android` y el flujo falla de forma controlada si falta configuración de Apple.
+- Evidencia: lib/data/repositories/auth_repository.dart, `flutter analyze lib/data/repositories/auth_repository.dart` (sin nuevos errores; 1 info preexistente por API deprecada no relacionada).
+
+- Fecha: 2026-05-23
+- Categoria: Functions | IA | Rollback
+- Cambio: Se revierte el modelo de analisis de suenos en Cloud Functions de `gemini-2.5-pro` a `gemini-2.5-flash` para restaurar el comportamiento previo y latencia/coste originales.
+- Impacto: El backend vuelve a usar Flash como modelo principal de analisis.
+- Evidencia: functions/src/index.ts.
+
+- Fecha: 2026-05-23
+- Categoria: Functions | IA | Calidad
+- Cambio: Se cambia el modelo de Gemini usado por Cloud Functions de `gemini-2.5-flash` a `gemini-2.5-pro` para priorizar calidad semántica y reducir alucinaciones en el análisis de sueños.
+- Impacto: Mayor calidad esperada en resumen/nota psicológica y menor deriva semántica, con posible incremento de latencia y coste por análisis.
+- Evidencia: functions/src/index.ts, `npm run build` en functions.
+
+- Fecha: 2026-05-23
+- Categoria: Functions | IA | Debug
+- Cambio: Se instrumentan logs de diagnóstico end-to-end para análisis de sueños. En `analyzeDream` (Functions) ahora se registran metadatos de request, salida cruda de Gemini (preview truncado), ruta de normalización usada (`first-pass|strict-pass|repair-pass`) y métricas del JSON final. En cliente (`GeminiService`) se registran payload recibido, preview de `analysisText`, resultado parseado y excepciones de callable.
+- Impacto: Permite identificar si el fallo está en respuesta de Gemini, en normalización/repair backend o en parseo/consumo cliente sin romper el flujo funcional.
+- Evidencia: functions/src/index.ts, lib/data/services/gemini_service.dart, `flutter analyze lib/data/services/gemini_service.dart lib/features/dreams/presentation/dream_analysis_step_screen.dart lib/features/dreams/presentation/dream_detail_screen.dart` (No issues found), `npm run build` en functions.
+
+- Fecha: 2026-05-23
+- Categoria: Firestore | UX | Dreams
+- Cambio: Se corrige fallo de permisos al analizar/actualizar sueños cuando `updateDream` intentaba sincronizar `publicDreams/{dreamId}` para sueños privados. La proyección social pasa a ser best-effort: se evita `delete` si el documento no existe o pertenece a otro usuario y se ignora `permission-denied` de sincronización sin romper la actualización del sueño privado.
+- Impacto: El análisis y guardado del sueño ya no fallan por errores de permisos en la colección social cuando el sueño no está publicado.
+- Evidencia: lib/data/repositories/dream_repository.dart, `flutter analyze lib/data/repositories/dream_repository.dart lib/features/dreams/presentation/dream_analysis_step_screen.dart lib/features/dreams/presentation/dream_detail_screen.dart` (No issues found).
+
+- Fecha: 2026-05-23
+- Categoria: UX | Social | Profile
+- Cambio: Se elimina la opcion de comentar suenos desde las tarjetas de perfil propio. En `ProfileScreen` se retira la navegacion a `CommentsScreen` y se quita el bloque UI de comentarios (icono + contador), dejando solo accion de like en la tarjeta publicada. Se verifica que en perfil publico no existe accion de comentarios activa.
+- Impacto: La experiencia de perfil (propio y de otros) queda alineada sin entry points de comentarios en la interfaz social de suenos.
+- Evidencia: lib/features/profile/presentation/profile_screen.dart, lib/features/social/presentation/public_profile_screen.dart, `flutter analyze lib/features/profile/presentation/profile_screen.dart lib/features/social/presentation/public_profile_screen.dart`.
+
+- Fecha: 2026-05-23
+- Categoria: UX | IA | Dreams
+- Cambio: Se unifica el flujo de analisis IA del formulario de creacion con el flujo de detalle. `DreamAnalysisStepScreen` deja de parsear manualmente la respuesta callable y pasa a usar `GeminiService.analyzeDream` + `AnalysisLanguageUtils.coerceToLocale/alignWithDreamSignals`, igual que `DreamDetailScreen`.
+- Impacto: Se elimina la deriva entre pantallas y se reduce el riesgo de resultados parcialmente vacios por diferencias de parseo/normalizacion entre flujos.
+- Evidencia: lib/features/dreams/presentation/dream_analysis_step_screen.dart, `flutter analyze lib/features/dreams/presentation/dream_analysis_step_screen.dart lib/features/dreams/presentation/dream_detail_screen.dart` (No issues found).
+
+- Fecha: 2026-05-23
+- Categoria: UX | Dashboard | Data Insights
+- Cambio: La tarjeta de correlación del dashboard migra de detección por palabras clave en texto libre a señales estructuradas de IA extraídas de `aiAnalysis`/`aiAnalysisByLanguage` (categoría, emociones, personajes, lugares y temas). Se elimina el factor textual de notas de contexto para este cálculo y se mantiene la correlación point-biserial sobre `moodScore`.
+- Impacto: Mayor coherencia semántica con el flujo Gemini-only, menor ruido por variaciones de redacción y resultados más alineados con entidades canónicas del análisis.
+- Evidencia: lib/features/dashboard/presentation/dashboard_screen.dart, `flutter analyze lib/features/dashboard/presentation/dashboard_screen.dart` (No issues found).
+
+- Fecha: 2026-05-23
+- Categoria: Functions | IA | Firestore
+- Cambio: Se añade postproceso en `analyzeDream` para unificar etiquetas de facetas por usuario usando historial de los últimos 100 sueños (`users/{uid}/dreams` ordenado por `createdAt desc`). La unificación se limita a `emotions`, `characters`, `places` y `themes`, aplicando matching conservador por normalización (lowercase/trim/sin acentos), singular/plural simple y diccionario mínimo de sinónimos ES/EN. Cuando hay match, se reutiliza la forma histórica canónica y se eliminan duplicados preservando orden.
+- Impacto: Reduce duplicados por variantes/sinónimos en analítica IA y mejora consistencia longitudinal de etiquetas sin alterar `summary`, `category`, `sentiment` ni `psychologicalNote`.
+- Evidencia: functions/src/index.ts, `npm run build` en functions (EXIT 0).
+
+- Fecha: 2026-05-23
+- Categoria: UX | Dashboard | IA
+- Cambio: Se reemplaza el tooltip de ayuda en "Etiquetas más usadas" por un dropdown de facetas (Todas, Personajes, Lugares, Emociones, Temas). El ranking deja de depender solo de `dream.tags` y pasa a agregarse desde `aiAnalysis`/`aiAnalysisByLanguage` por tipo estructurado.
+- Impacto: El dashboard permite explorar elementos recurrentes por semantica real del analisis y ya no mezcla el ranking genérico de etiquetas con los campos estructurados del sueño.
+- Evidencia: lib/features/dashboard/presentation/dashboard_screen.dart, `flutter analyze lib/features/dashboard/presentation/dashboard_screen.dart` (No issues found).
+
+- Fecha: 2026-05-22
+- Categoria: IA | Functions | UX
+- Cambio: Se cambia el flujo de analisis a modo Gemini-only. En backend (`analyzeDream`) se elimina la generacion local de respuestas fallback y se agrega reparacion de JSON con un segundo prompt a Gemini; si no se puede normalizar respuesta, se devuelve error real. En cliente se elimina la sustitucion heuristica/fallback local durante guardado y se exige contenido minimo del resultado Gemini.
+- Impacto: El analisis mostrado en app proviene exclusivamente de Gemini; se evitan respuestas prefabricadas locales y se visibilizan fallos reales de servicio/cuota/formato.
+- Evidencia: functions/src/index.ts, lib/features/dreams/presentation/dream_analysis_step_screen.dart, `flutter analyze ...` (No issues found), `npm run build` en functions (BUILD_EXIT=0).
+
+- Fecha: 2026-05-22
+- Categoria: UX | IA | Resiliencia
+- Cambio: Se agrega un bypass en cliente para respuestas legacy genericas de Morfeo ("necesita mas detalles" / "relato breve o insuficiente"). Si se detectan esas frases, la app rehace el resultado con analisis heuristico sobre el texto real del sueno.
+- Impacto: Evita que la UI muestre resultados genericos cuando el backend devuelva fallback antiguo y permite analisis util sin depender de despliegue inmediato de Functions.
+- Evidencia: lib/features/dreams/presentation/dream_analysis_step_screen.dart, lib/shared/utils/analysis_language_utils.dart, `flutter analyze ...` (No issues found).
+
+- Fecha: 2026-05-22
+- Categoria: UX | IA | Functions
+- Cambio: Se reduce el umbral de coherencia para analisis de Morfeo en cliente y backend. Ahora solo se fuerza fallback cuando el texto es claramente ilogico (caracteres repetidos, tokens repetitivos extremos o densidad de letras anomala), y en el resto se devuelve lectura basica en lugar de "necesita mas detalles".
+- Impacto: Disminuyen los falsos negativos de analisis en suenos reales no estructurados; Morfeo analiza practicamente todos los casos salvo entrada basura evidente.
+- Evidencia: lib/features/dreams/presentation/dream_analysis_step_screen.dart, functions/src/index.ts, `flutter analyze lib/features/dreams/presentation/dream_analysis_step_screen.dart` (No issues found), `npm run build` en functions (BUILD_EXIT=0).
+
+- Fecha: 2026-05-22
+- Categoria: UX | IA | L10n
+- Cambio: Se corrige el término `sonador` a `soñador` en los fallbacks/heurísticas de análisis de Morfeo y se añade normalización defensiva para que resultados antiguos sigan mostrándose correctamente en la UI.
+- Impacto: La sección de personajes ya muestra `soñador` con ñ tanto en nuevos análisis como en datos heredados generados antes del fix.
+- Evidencia: functions/src/index.ts, lib/shared/utils/analysis_language_utils.dart, lib/features/dreams/presentation/dream_morfeo_result_screen.dart, `flutter analyze lib/shared/utils/analysis_language_utils.dart lib/features/dreams/presentation/dream_morfeo_result_screen.dart` (EXIT 0), `npm run build` en functions (EXIT 0).
+
+- Fecha: 2026-05-22
+- Categoria: UX | Profile | Feedback
+- Cambio: Se rediseña el feedback al cambiar la foto de perfil en `edit_profile_screen` con snackbar flotante estilo glass, iconografía contextual (cámara/error), borde acorde al estado y reemplazo del feedback previo básico.
+- Impacto: El usuario recibe una confirmación visual más clara y consistente con la estética premium de la app al actualizar el avatar.
+- Evidencia: lib/features/settings/presentation/edit_profile_screen.dart, `flutter analyze lib/features/settings/presentation/edit_profile_screen.dart` (EXIT 0, sin issues).
+
+- Fecha: 2026-05-22
+- Categoria: Notifications | Functions | UX
+- Cambio: Implementacion end-to-end de notificaciones: se anaden triggers FCM para nuevas solicitudes de seguimiento (`followRequests`) y nuevos seguidores (`follows`) respetando preferencias `notifyFollowRequests` y `notifyNewFollowers`; se mantiene notificacion de publicaciones. En cliente Flutter se implementa programacion local del recordatorio diario por hora (`notificationTime`) con sincronizacion automatica por usuario autenticado.
+- Impacto: La app ahora cubre publicaciones, solicitudes, nuevos seguidores y recordatorio diario de suenos de forma funcional.
+- Evidencia: functions/src/index.ts, lib/data/services/notification_service.dart, lib/app/bootstrap.dart, pubspec.yaml, `flutter analyze ...` (EXIT 0), `npm run build` en functions (EXIT 0).
+
+
+- Fecha: 2026-05-22
+- Categoria: UX | IA | Audio
+- Cambio: Se ajusta el flujo de analisis de Morfeo para que un fallo de transcripcion por cuota/servicio agotado no corte el proceso cuando ya existe titulo y descripcion. En ese caso se continua con analisis de texto solamente.
+- Impacto: Los sueños con descripcion suficiente ya no quedan bloqueados por el audio si Gemini devuelve 429 o un error de disponibilidad.
+- Evidencia: lib/features/dreams/presentation/dream_analysis_step_screen.dart, `flutter analyze lib/features/dreams/presentation/dream_analysis_step_screen.dart` (EXIT 0, sin issues).
+
+- Fecha: 2026-05-22
+- Categoria: UX | Dreams | Sharing
+- Cambio: Ajustes en `dream_saved_step_screen`: en la tarjeta de publicacion se movio el estado (`Publicado` / `Pendiente de publicar`) a una linea propia para evitar que el titulo se comprima; en la seccion de compartir se elimino el acceso dedicado a WhatsApp y se dejo una unica accion de compartir general.
+- Impacto: Mejor legibilidad del bloque de publicacion y flujo de compartir mas limpio y consistente.
+- Evidencia: lib/features/dreams/presentation/dream_saved_step_screen.dart, `flutter analyze lib/features/dreams/presentation/dream_saved_step_screen.dart` (EXIT 0, sin issues).
+
+- Fecha: 2026-05-22
+- Categoria: Functions | IA | Resiliencia
+- Cambio: Se endurece `analyzeDream` para que los fallos de Gemini no se propaguen como error interno al cliente. Cuando la llamada falla o no hay texto util, la Function devuelve un analisis basico con `quality: low` en lugar de lanzar `HttpsError('internal')`.
+- Impacto: Morfeo deja de romper el flujo de guardado/análisis para sueños con contenido valido pero respuestas problemáticas del modelo o de la API.
+- Evidencia: functions/src/index.ts, `npm run build` en functions (EXIT 0).
+
+- Fecha: 2026-05-22
+- Categoria: Firebase | Notifications | Android
+- Cambio: Se corrige la entrega de notificaciones push para publicaciones sociales. `appBootstrap` ahora crea el canal Android `social_notifications`, vuelve a sincronizar el token FCM cuando el usuario inicia sesion despues del arranque y se agrega `POST_NOTIFICATIONS` al manifest de Android.
+- Impacto: Los usuarios autenticados ya no dependen de arrancar la app con sesion activa para registrar el token, y Android 13+ puede pedir el permiso correcto para recibir push en release APK.
+- Evidencia: lib/app/bootstrap.dart, android/app/src/main/AndroidManifest.xml, `flutter analyze lib/app/bootstrap.dart android/app/src/main/AndroidManifest.xml` (EXIT 0, sin issues).
+
+- Fecha: 2026-05-22
+- Categoria: UX | IA | Audio
+- Cambio: Se relaja la validacion client-side de transcripcion en `dream_analysis_step_screen.dart`. El flujo de Morfeo deja de bloquear audios con texto corto pero valido y solo muestra la advertencia de informacion insuficiente cuando no se obtiene ninguna transcripcion.
+- Impacto: Los audios largos que Gemini transcribe de forma breve ya no quedan cortados antes del analisis; el flujo continua hacia interpretacion y fallback basico si hace falta.
+- Evidencia: lib/features/dreams/presentation/dream_analysis_step_screen.dart, `flutter analyze lib/features/dreams/presentation/dream_analysis_step_screen.dart` (EXIT 0, sin issues).
+
 - Fecha: 2026-05-22
 - Categoria: UX | Auth | Registro
 - Cambio: Se anade popup de confirmacion al completar registro en `RegisterScreen`. Tras `signUp` exitoso ahora se muestra un modal de exito (icono, mensaje localizado y CTA a login) antes del `signOut` y redireccion a pantalla de inicio de sesion.
