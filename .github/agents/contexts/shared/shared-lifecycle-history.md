@@ -18,6 +18,150 @@ El objetivo es facilitar la redaccion futura del documento TFG con trazabilidad 
 
 ## Historial
 
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Anexos
+- Cambio: Se redactan el Anexo D (manual breve de usuario) y el Anexo E (manual tecnico de despliegue), cubriendo respectivamente uso funcional y continuidad operativa del proyecto.
+- Impacto: El bloque de anexos recomendado en el indice queda practicamente completo y la memoria gana valor evaluable tanto para usuario final como para revision tecnica.
+- Evidencia: docs/ANEXO_D_MANUAL_BREVE_USUARIO_BORRADOR.txt, docs/ANEXO_E_MANUAL_TECNICO_DESPLIEGUE_BORRADOR.txt, SETUP_GUIDE.md, .github/docs/guides/android-studio-deploy-guide.md, .github/docs/guides/firebase-backend-runbook.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Anexos
+- Cambio: Se redacta el Anexo C de diagramas con base en artefactos reales del proyecto (Gantt, arquitectura logica, flujo IA y esquema documental de datos), evitando declarar UML formal no producido durante el desarrollo.
+- Impacto: Se cubre el anexo de diagramas del indice con contenido evaluable y coherente con el estado real del repositorio.
+- Evidencia: docs/ANEXO_C_DIAGRAMAS_BORRADOR.txt, docs/05_METODOLOGIA_Y_DESARROLLO_BORRADOR.txt, functions/src/index.ts, lib/data/repositories/dream_repository.dart.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Anexos
+- Cambio: Se redacta el Anexo A (glosario y acronimos) con terminologia tecnica del proyecto, definiciones operativas y criterio de uso para consistencia documental.
+- Impacto: Se mejora legibilidad para evaluacion y se reduce ambiguedad terminologica entre capitulos tecnicos, metodologicos y economicos.
+- Evidencia: docs/ANEXO_A_GLOSARIO_Y_ACRONIMOS_BORRADOR.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Citas IEEE
+- Cambio: Se insertan citas en texto en los capitulos 4, 5, 6, 7 y 8 y se ajusta bibliografia (capitulo 9) para cubrir todas las referencias usadas en afirmaciones tecnicas, metodologicas y comparativas.
+- Impacto: El borrador queda preparado para copia directa con trazabilidad de fuentes en formato IEEE sin depender de insercion manual posterior.
+- Evidencia: docs/04_TECNOLOGIA_USADA_BORRADOR.txt, docs/05_METODOLOGIA_Y_DESARROLLO_BORRADOR.txt, docs/06_MEDIOS_Y_CALCULO_DE_COSTES_BORRADOR.txt, docs/07_CONCLUSIONES_Y_PROBLEMAS_CONFRONTADOS_BORRADOR.txt, docs/08_BORRADOR_ESTRATEGIA_FUTURA_MODELO_NEGOCIO.txt, docs/09_BIBLIOGRAFIA_IEEE_BORRADOR.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Introduccion
+- Cambio: Se completa el apartado 2.4 del capitulo de introduccion con la estructura final del documento (capitulos 1-9, bibliografia IEEE y papel de anexos de evidencia).
+- Impacto: Queda cerrado el bloque de introduccion sin placeholders pendientes y alineado con la arquitectura documental consolidada de la memoria.
+- Evidencia: docs/02_introduccion_borrador.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Bibliografia
+- Cambio: Se redacta el borrador del capitulo 9 con bibliografia en formato IEEE, incluyendo fuentes oficiales del stack tecnico, referencias metodologicas (Scrum/Kanban) y fuentes internas de trazabilidad del proyecto.
+- Impacto: Queda preparada una base bibliografica coherente con la memoria y lista para enlazar citas en los capitulos tecnicos y de metodologia.
+- Evidencia: docs/09_BIBLIOGRAFIA_IEEE_BORRADOR.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Trabajos futuros
+- Cambio: Se amplía el capitulo 8 para incluir control y refinamiento de inferencia Gemini (validacion de esquema, retries, observabilidad y degradacion) y una propuesta de nuevo servicio de generacion de imagen IA a partir de la descripcion del sueno.
+- Impacto: Se refuerza la hoja de ruta tecnica futura con medidas concretas de calidad, coste y diferenciacion funcional de producto.
+- Evidencia: docs/08_BORRADOR_ESTRATEGIA_FUTURA_MODELO_NEGOCIO.txt, functions/src/index.ts, lib/data/services/gemini_service.dart.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Conclusiones
+- Cambio: Se crea el borrador del capitulo 7 con enfoque en grado de cumplimiento, problemas confrontados, patrones comunes de proyectos similares y lecciones aprendidas.
+- Impacto: Queda formalizada una narrativa de cierre tecnicamente defendible, incluyendo la desviacion de alcance por la capa social y su efecto en esfuerzo y nivel de pulido relativo.
+- Evidencia: docs/07_CONCLUSIONES_Y_PROBLEMAS_CONFRONTADOS_BORRADOR.txt, docs/05_METODOLOGIA_Y_DESARROLLO_BORRADOR.txt, INTEGRATION_RISKS.md, .github/agents/contexts/shared/shared-lifecycle-history.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Modelo economico
+- Cambio: Se ajusta la suscripcion objetivo a 3,99 EUR/mes y se define un esquema de acceso IA por niveles: 3 analisis gratuitos con Gemini 2.5 Flash y uso continuo con Gemini 2.5 Pro bajo suscripcion.
+- Impacto: Se incrementa la accesibilidad de entrada del producto, manteniendo control de coste IA y coherencia con la estrategia de cobro nativo y margen por suscriptor.
+- Evidencia: docs/06_MEDIOS_Y_CALCULO_DE_COSTES_BORRADOR.txt, docs/08_BORRADOR_ESTRATEGIA_FUTURA_MODELO_NEGOCIO.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Economia y futuro
+- Cambio: Se reorganiza el capitulo 6 con separacion formal entre coste historico y plan de explotacion (publicacion, suscripcion unica, comisiones nativas y equilibrio) y se crea un borrador del capitulo 8 centrado en estrategia de crecimiento, marketing y evolucion IA.
+- Impacto: La memoria gana coherencia entre viabilidad financiera y hoja de ruta futura, evitando mezclar hipotesis de negocio con costes ya ejecutados.
+- Evidencia: docs/06_MEDIOS_Y_CALCULO_DE_COSTES_BORRADOR.txt, docs/08_BORRADOR_ESTRATEGIA_FUTURA_MODELO_NEGOCIO.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Costes
+- Cambio: Se crea el borrador del capitulo 6 con medios y calculo de costes, incorporando hardware/software usado, valoracion de horas, desembolso real en herramientas y modelo de coste operativo futuro para despliegue.
+- Impacto: Queda establecida una separacion clara entre coste historico del desarrollo y plan economico de explotacion (suscripcion IA), mejorando rigor contable y defendibilidad academica.
+- Evidencia: docs/06_MEDIOS_Y_CALCULO_DE_COSTES_BORRADOR.txt, pubspec.yaml, functions/package.json.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Pruebas
+- Cambio: Se reajusta el capitulo 5 para presentar el QA como validacion funcional manual sin evidencias formales anexadas y se documentan los dispositivos usados en emulacion y pruebas fisicas dentro del apartado de validacion en dispositivos.
+- Impacto: La memoria evita sobredeclarar un proceso QA formal no evidenciado y gana precision sobre el entorno real de pruebas del proyecto.
+- Evidencia: docs/05_METODOLOGIA_Y_DESARROLLO_BORRADOR.txt, QA_TEST_PLAN.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Metodologia
+- Cambio: Se amplía el nivel de detalle técnico del capítulo 5 para que la concreción del repositorio comience en el apartado 5.5, incluyendo capas reales, rutas del proyecto, repositorios de datos y colecciones Firestore.
+- Impacto: La memoria gana continuidad entre arquitectura, modelo de datos e implementación, evitando que el detalle técnico arranque demasiado tarde en el capítulo.
+- Evidencia: docs/05_METODOLOGIA_Y_DESARROLLO_BORRADOR.txt, lib/app/main_shell.dart, lib/data/repositories/dream_repository.dart, functions/src/index.ts.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Tecnologia
+- Cambio: Se amplía el capítulo 4 con un subapartado específico sobre apoyo de GitHub Copilot y arquitectura de agentes en `.github` (roles, permisos por categoría, contexto obligatorio y trazabilidad documental).
+- Impacto: Queda documentada formalmente la gobernanza de asistencia IA usada durante el desarrollo y su integración con el flujo técnico del proyecto.
+- Evidencia: docs/04_TECNOLOGIA_USADA_BORRADOR.txt, .github/agents/README.md, .github/agents/contexts/shared/shared-agent-coordination.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Redaccion
+- Cambio: Se redacta el borrador del capitulo 4 (Tecnologia usada) en formato limpio, con justificacion de elecciones, desglose por stack principal y tecnologias de soporte, y criterios de seleccion orientados a coste, tiempo, mantenibilidad y seguridad.
+- Impacto: Queda cubierto el bloque tecnologico de la memoria con equilibrio entre enfoque conceptual y detalle tecnico.
+- Evidencia: docs/04_TECNOLOGIA_USADA_BORRADOR.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Alcance funcional
+- Cambio: Se explicita en la memoria que el cierre de sesion forma parte del objetivo de autenticacion, el borrado de cuenta del ciclo de vida del dato y el tutorial inicial del objetivo de experiencia/onboarding.
+- Impacto: Se eliminan ambiguedades sobre si estas funciones son objetivos nuevos o subfunciones ya existentes del alcance final.
+- Evidencia: docs/03_OBJETIVOS_VERSION_LIMPIA_PARA_GOOGLE_DOCS.txt, docs/ANEXO_B_BORRADOR_LISTO_PARA_CAPTURAS.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Evidencias
+- Cambio: Se eliminan los dos documentos previos de Anexo B y se consolida en un unico archivo operativo `docs/ANEXO_B_BORRADOR_LISTO_PARA_CAPTURAS.txt`, preparado para pegar capturas EV-01 a EV-16 sin reescribir contenido.
+- Impacto: Simplifica el flujo de trabajo del usuario en Google Docs y reduce inconsistencias entre guias/versiones del anexo.
+- Evidencia: docs/ANEXO_B_BORRADOR_LISTO_PARA_CAPTURAS.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Operativa de entrega
+- Cambio: Se generan versiones limpias para pasar a Google Docs del capitulo 3 y una guia practica de Anexo B con instrucciones de maquetacion, trazabilidad EV-xx y checklist final de exportacion.
+- Impacto: Se reduce friccion de traspaso a documento final y se estandariza como presentar evidencias para evaluacion.
+- Evidencia: docs/03_OBJETIVOS_VERSION_LIMPIA_PARA_GOOGLE_DOCS.txt, docs/ANEXO_B_GUIA_PRACTICA_PARA_GOOGLE_DOCS.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Evidencias
+- Cambio: Se cierra el apartado 3 (Objetivos) en estado "superado" con matriz de trazabilidad EV-xx y se crea el anexo guia `docs/ANEXO_B_EVIDENCIAS_TECNICAS.txt` para documentar pruebas funcionales/tecnicas en la memoria final.
+- Impacto: Queda definido un esquema verificable de cumplimiento de objetivos y un procedimiento practico para trasladar evidencias al documento final (Google Docs/Word).
+- Evidencia: docs/03_objetivos_borrador.txt, docs/ANEXO_B_EVIDENCIAS_TECNICAS.txt.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Redaccion
+- Cambio: Se redacta el borrador del capitulo 3 (Objetivos) en `docs/03_objetivos_borrador.txt`, incluyendo objetivo general actualizado, listado de objetivos especificos con alcance social, criterios de exito verificables y matriz de trazabilidad anteproyecto vs alcance final.
+- Impacto: Queda definido el marco de evaluacion de cumplimiento antes de redactar tecnologia, metodologia y resultados.
+- Evidencia: docs/03_objetivos_borrador.txt, docs/Anteproyecto_GonzaloCalvoEngelmo.docx.txt, lib/features/social/presentation/public_profile_screen.dart, lib/features/social/presentation/user_search_screen.dart.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Redaccion
+- Cambio: Se redacta el borrador del capitulo 2 (Introducción) en `docs/02_introduccion_borrador.txt`, incorporando comparativa de alcance anteproyecto vs alcance ejecutado e incluyendo la ampliacion social del producto.
+- Impacto: Queda definida la narrativa de contexto del proyecto y la evolucion funcional real antes de objetivos/tecnologia/metodologia.
+- Evidencia: docs/02_introduccion_borrador.txt, docs/Anteproyecto_GonzaloCalvoEngelmo.docx.txt, lib/features/social/presentation/public_profile_screen.dart, lib/features/social/presentation/user_search_screen.dart, lib/app/main_shell.dart.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Calidad editorial
+- Cambio: Se normaliza ortografia en borradores de memoria para usar tildes y eñes de forma consistente en español, y se fija esta norma en el contexto especializado de memoria.
+- Impacto: Mejora la calidad formal del texto academico y reduce riesgo de penalizacion por estilo/ortografia en la evaluacion.
+- Evidencia: docs/01_origen_y_justificacion_borrador.txt, docs/INDICE_MEMORIA_TFG_HYPNOS.txt, .github/agents/contexts/specialized/project-memory-context.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Redaccion
+- Cambio: Se redacta el primer borrador del capitulo 1 (Origen y justificacion) en `docs/01_origen_y_justificacion_borrador.txt` con estilo impersonal academico y enfoque trazable a motivacion de uso real del proyecto.
+- Impacto: Queda iniciado el cuerpo principal de la memoria con una base reutilizable y coherente con anteproyecto e indice oficial.
+- Evidencia: docs/01_origen_y_justificacion_borrador.txt, .github/agents/contexts/specialized/project-memory-context.md.
+
+- Fecha: 2026-05-25
+- Categoria: Documentacion | TFG | Planificacion
+- Cambio: Se crea el documento de indice inicial de memoria en `docs/INDICE_MEMORIA_TFG_HYPNOS.txt`, alineado con requisitos academicos obligatorios y rango de 10.000-15.000 palabras, incluyendo reparto orientativo por secciones y checklist formal de redaccion.
+- Impacto: Queda definida una estructura base evaluable para iniciar redaccion incremental con control de extension y trazabilidad de contenido.
+- Evidencia: docs/INDICE_MEMORIA_TFG_HYPNOS.txt, .github/agents/contexts/specialized/project-memory-context.md.
+
 - Fecha: 2026-05-24
 - Categoria: Documentacion | TFG | Agentes
 - Cambio: Se unifica la documentacion en un unico documento fuente (`docs/memoria-principal-borrador.md`) integrando dentro de la propia memoria el detalle tecnico de codigo, el anexo de evidencias y la matriz de trazabilidad. Se eliminan archivos markdown auxiliares en `docs/tfg-tecnica` y `docs/anteproyecto.txt`.

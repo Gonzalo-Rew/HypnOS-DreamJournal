@@ -84,7 +84,7 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
       return null;
     }
 
-    if (!_hasActiveAudio && trimmed.length < _minDreamDescriptionChars) {
+    if (trimmed.length < _minDreamDescriptionChars) {
       return l.dreamFormDescriptionMin(_minDreamDescriptionChars);
     }
     return null;
@@ -525,12 +525,6 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
                   decoration: glassDecoration,
                   child: TextFormField(
                     controller: _titleController,
-                    keyboardType: TextInputType.text,
-                    textCapitalization: TextCapitalization.sentences,
-                    autocorrect: true,
-                    enableSuggestions: true,
-                    smartDashesType: SmartDashesType.enabled,
-                    smartQuotesType: SmartQuotesType.enabled,
                     style: fieldStyle,
                     decoration: InputDecoration(
                       hintText: l.dreamFormTitleHint,
@@ -560,12 +554,6 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
                       TextFormField(
                         controller: _descriptionController,
                         maxLines: 5,
-                        keyboardType: TextInputType.multiline,
-                        textCapitalization: TextCapitalization.sentences,
-                        autocorrect: true,
-                        enableSuggestions: true,
-                        smartDashesType: SmartDashesType.enabled,
-                        smartQuotesType: SmartQuotesType.enabled,
                         style: fieldStyle,
                         decoration: InputDecoration(
                           hintText: l.dreamFormDescriptionHint,
@@ -611,7 +599,7 @@ class _DreamFormScreenState extends State<DreamFormScreen> {
 
                 if (_isEditing) ...[
                   const SizedBox(height: AppSpacing.md),
-                  Text('PUBLICACIÓN Y ALCANCE', style: sectionLabelStyle),
+                  Text('PUBLICACION Y ALCANCE', style: sectionLabelStyle),
                   const SizedBox(height: AppSpacing.xs),
                   _PublishToggle(
                     isPublished: _isPublished,

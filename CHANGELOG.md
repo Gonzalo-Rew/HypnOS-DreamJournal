@@ -26,12 +26,12 @@ feat/mvp-vX  →  merge a main  →  git tag vX.Y.Z  →  release APK
 
 ## [1.1.0] — En desarrollo
 **Rama:** `feat/mvp-v2`
-**Estado:** 🔧 In Progress
+**Tag:** `v1.1.0`
+**Estado:**✅ Released
+### Incluye
+- Diseños finales
+- Funcionamiento probado
 
-### Cambios previstos
-- [ ] (por definir con el usuario)
-
----
 
 ## [1.0.0] — 2026-05-16
 **Rama:** `feat/mvp-v1` → mergeada a `main`
